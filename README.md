@@ -2,7 +2,7 @@
 
 **DARK-ART** is a comprehensive, user-friendly R Shiny application designed to automate biostatistical analysis. It bridges the gap between complex statistical coding and intuitive graphical user interfaces, making rigorous data analysis accessible to researchers and clinicians.
 
-**Live Demo**: Also available in serverless at [https://gourean.shinyapps.io/dark-art](https://gourean.shinyapps.io/dark-art)
+**Live Demo:** [View the App v1.0.0-beta on ShinyApps.io](https://gourean.shinyapps.io/dark-art)
 
 ## Key Features
 
@@ -111,10 +111,11 @@ The application employs a robust decision logic to select the most appropriate s
 
 If you find this tool useful, consider supporting its development:
 
-[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://paypal.me/gourean)
+[![Donate](https://raw.githubusercontent.com/stefan-niedermann/paypal-donate-button/master/paypal-donate-button.png)](https://paypal.me/gourean)
 
 ## Credits
 
 Developed for efficient and automated biostatistical analysis via **Vibe Coding** with **Gemini 3 Pro**.
 *   **UI/UX**: `bslib` "Minty" theme.
 *   **Plotting**: `ggplot2` ecosystem.
+
