@@ -3,6 +3,7 @@ name: Deploy Shinylive App
 on:
   push:
     branches: [main, master]
+  workflow_dispatch
 
 # These permissions are REQUIRED for the "GitHub Actions" source setting
 permissions:
