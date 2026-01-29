@@ -4,7 +4,7 @@
 
 **Serverless Web-based Application:** [Run the App on ShinyApps.io](https://gourean.shinyapps.io/dark-art) -Fast loading
 
-**Shinylive Web-based Application:**[Run the App on Shinylive](https://gourean.github.io/dark-art) -Note: Initial load may take a moment as it runs entirely in your browser.
+**Shinylive Web-based Application:** [Run the App on Shinylive](https://gourean.github.io/dark-art) -Note: Initial load may take a moment as it runs entirely in your browser.
 
 ## Key Features
 
@@ -123,6 +123,7 @@ If you find this tool useful, consider supporting its development:
 ## Credits
 
 Developed via **Vibe Coding** with **Gemini 3 Pro**.
+
 
 
 
