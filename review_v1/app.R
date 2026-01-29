@@ -18,6 +18,9 @@ library(dunn.test)  # For non-parametric pairwise comparisons
 library(ggsignif)   # For significance brackets
 library(colourpicker) # For custom color selection
 library(tidyr)      # For data reshaping
+library(scales)     # Explicitly load for formatting
+library(svglite)    # Explicitly load for SVG export
+library(munsell)    # Explicitly load to fix ggplot2 dependency error
 
 # ==============================================================================
 # 1. THE FRONTEND (UI)
