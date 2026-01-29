@@ -8,12 +8,12 @@
 
 ## Key Features
 
-*   **Smart Data Import**:
+*   **Data Import**:
     *   Accepts .csv files.
-    *   Auto-detects numeric and categorical variables.
+    *   Auto-detects numeric and categorical variable types.
     *   Allows manual overrides for variable types.
 
-*   **Versatile Analysis Modes**:
+*   **Supported Analysis**:
     *   **Independent Groups**: 
         *   Automatically selects between Parametric (T-Test, ANOVA) and Non-Parametric (Mann-Whitney, Kruskal-Wallis) tests based on normality assumptions.
         *   Handles categorical outcomes with Fisher's Exact or Chi-Square tests.
@@ -24,26 +24,31 @@
     *   **Correlation**:
         *   Pearson (parametric) and Spearman (non-parametric) correlation.
     *   **Split Group Analysis**:
-        *   Perform separate analyses (Independent, Paired, or Correlation) for subgroups within your data automatically.
+        *   Perform separate analyses (Independent, Paired, or Correlation) for subgroups within your data.
 
-*   **Advanced Visualizations**:
+*   **Visualizations**:
     *   Publication-ready plots based on ggplot2.
     *   **Customization**: Fully adjustable titles, axis labels, fonts, sizes, and colors.
     *   **Significance**: Auto-generated significance brackets and p-values/stars.
     *   **Export**: High-resolution downloads in PDF, SVG, and JPEG formats.
 
-*   **Statistical Rigor**:
+*   **Automated Workflow**:
     *   **Assumption Checking**: Automatic Shapiro-Wilk (normality), Levene's test (homogeneity of variance), and Mauchly's test (sphericity).
     *   **Post-hoc Analysis**: Bonferroni corrections for ANOVA; Custom Dunn-Bonferroni implementations for non-parametric multi-group comparisons to match commercial software standards.
-    *   **Interpretation**: "Plain English" text generation explaining the statistical results alongside detailed methodology.
+    *   **Interpretation**: "Natural Language" text generation explaining the statistical results alongside detailed methodology. 
+        *   **Note**: This logic is deterministic and hardcoded. It is **NOT** an LLM and does **NOT** hallucinate.
 
-*   **Result Export**:
+*   **Table Results**:
     *   Export result tables to CSV or Word-compatible HTML.
     *   Includes pairwise comparison tables and descriptive statistics.
 
 ## Installation & Requirements
+ 
+**No Installation Required**: You can run the app directly in your browser without installing anything:
+*   [**Serverless (ShinyApps.io)**](https://gourean.shinyapps.io/dark-art) - Best for quick access.
+*   [**Shinylive**](https://gourean.github.io/dark-art) - Best for client-side processing.
 
-This app requires **R** and several R packages.
+To run the app **locally**, you will need **R** and several R packages.
 
 ### 1. Prerequisites
 Ensure you have R installed. It is recommended to use RStudio for running the app locally.
@@ -113,14 +118,9 @@ The application employs a robust decision logic to select the most appropriate s
 
 If you find this tool useful, consider supporting its development:
 
-[![Donate](https://raw.githubusercontent.com/stefan-niedermann/paypal-donate-button/master/paypal-donate-button.png)](https://paypal.me/gourean)
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://paypal.me/gourean)
 
 ## Credits
 
-Developed for efficient and automated biostatistical analysis via **Vibe Coding** with **Gemini 3 Pro**.
-*   **UI/UX**: `bslib` "Minty" theme.
-*   **Plotting**: `ggplot2` ecosystem.
-
-
-
+Developed via **Vibe Coding** with **Gemini 3 Pro**.
 
