@@ -44,7 +44,7 @@ jobs:
       - name: Build Applications
         run: |
           shinylive::export(appdir = ".", destdir = "_site")
-          shinylive::export(appdir = "review_v1", destdir = "_site/review_v1")
+          shinylive::export(appdir = "v1", destdir = "_site/v1")
         shell: Rscript {0}
 
       - name: Upload pages artifact
