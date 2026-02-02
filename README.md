@@ -1,17 +1,22 @@
+<p align="center">
+  <img src="www/logo.svg" width="200" alt="DARK-ART Logo">
+</p>
+
 # DARK-ART: Data Analysis Rapid Kit - Automated R Tool
 
 **DARK-ART** is a comprehensive, user-friendly R Shiny application designed to automate biostatistical analysis. It bridges the gap between complex statistical coding and intuitive graphical user interfaces, making rigorous data analysis accessible to researchers and clinicians.
 
-**Serverless Web-based Application:** [Run the App on ShinyApps.io](https://gourean.shinyapps.io/dark-art) (Fast intial loading)
+**Serverless Web-based Application:** [ShinyApps.io](https://gourean.shinyapps.io/dark-art)(Fast initial loading)
 
-**Shinylive Web-based Application:** [Run the App on Shinylive](https://gourean.github.io/dark-art) (Slow initial load, run locally)
+**Shinylive Web-based Application:**[Shinylive](https://gourean.github.io/dark-art)(Slow initial load, run locally)
 
 ## Key Features
 
-*   **Data Import**:
+*   **Data Import & Inspection**:
     *   Accepts .csv files.
-    *   Auto-detects numeric and categorical variable types.
-    *   Allows manual overrides for variable types.
+    *   **New**: **Datasheet Viewer** tab to inspect and verify uploaded data directly.
+    *   Auto-detects numeric and categorical variable types with manual override options.
+    *   **Export**: Copy raw data to clipboard, or export to CSV/Excel from the viewer.
 
 *   **Supported Analysis**:
     *   **Independent Groups**: 
@@ -39,8 +44,12 @@
         *   **Note**: This logic is deterministic and hardcoded. It is **NOT** an LLM and does **NOT** hallucinate.
 
 *   **Table Results**:
-    *   Export result tables to CSV or Word-compatible HTML.
+    *   **Export**: Download result tables as **HTML/Word** documents or CSV.
     *   Includes pairwise comparison tables and descriptive statistics.
+
+*   **User Interface**:
+    *   **Mobile Friendly**: Optimized layout for responsiveness on smaller screens.
+    *   **Logo**: Integrated branding for easier recognition.
 
 ## Installation & Requirements
  
@@ -68,7 +77,9 @@ install.packages(c(
   "svglite", 
   "ggsignif", 
   "colourpicker", 
-  "tidyr"
+  "tidyr",
+  "munsell",
+  "DT"
 ))
 ```
 
@@ -123,9 +134,4 @@ If you find this tool useful, consider supporting its development:
 ## Credits
 
 Developed via **Vibe Coding** with **Gemini 3 Pro**.
-
-
-
-
-
 

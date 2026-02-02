@@ -2,7 +2,7 @@
 # 0. SETUP & PACKAGE INSTALLATION
 # Ensure all required packages are installed before loading.
 # ==============================================================================
-# required_packages <- c("shiny", "bslib", "ggplot2", "dplyr", "glue", "dunn.test", "scales", "svglite", "ggsignif", "colourpicker", "tidyr")
+# required_packages <- c("shiny", "bslib", "ggplot2", "dplyr", "glue", "dunn.test", "scales", "svglite", "ggsignif", "colourpicker", "tidyr", "DT")
 
 # Check if packages are installed; if not, install them.
 # new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
@@ -21,6 +21,7 @@ library(tidyr)      # For data reshaping
 library(scales)     # Explicitly load for formatting
 library(svglite)    # Explicitly load for SVG export
 library(munsell)    # Explicitly load to fix ggplot2 dependency error
+library(DT)         # For interactive tables
 
 # ==============================================================================
 # 1. THE FRONTEND (UI)
@@ -30,6 +31,7 @@ ui <- page_sidebar(
   # A. The Theme (Medical/Clean look)
   theme = bs_theme(bootswatch = "minty"), 
   tags$head(
+    tags$link(rel = "icon", type = "image/svg+xml", href = "logo.svg"),
     tags$style(HTML("
       /* Make Accordion Transparent in Sidebar */
       .accordion-button {
@@ -43,9 +45,9 @@ ui <- page_sidebar(
       .accordion-button:not(.collapsed) {
          background-color: rgba(0,0,0,0.05) !important;
       }
-    "))
+    ")),
   ), 
-  title = "DARK-ART: Data Analysis Rapid Kit-Automated R Tool",
+  title = div(img(src = "logo.svg", height = "40px", style = "margin-right: 10px; vertical-align: middle;"), "DARK-ART: Data Analysis Rapid Kit-Automated R Tool"),
   
   # B. The Sidebar (Inputs)
   sidebar = sidebar(
@@ -112,7 +114,7 @@ ui <- page_sidebar(
     hr(), # Horizontal line
 
     # Note
-    helpText("Built by Wong GR. v1.0.0-beta available on ", a(href="https://github.com/gourean/dark-art", "Github", target="_blank"))
+    helpText("Built by Wong GR. v1.1.0 available on ", a(href="https://github.com/gourean/dark-art", "Github", target="_blank"))
   ),
   
   # C. The Main Display (Outputs) -> Nested Sidebar Layout
@@ -254,9 +256,14 @@ ui <- page_sidebar(
         h5("Export Table"),
         helpText("Tip: Add .doc in file name to save as Microsoft Word file.", style = "font-size: 0.8em; color: #666;"),
         div(style="display: flex; gap: 5px; flex-wrap: wrap;",
-            downloadButton("dl_table_csv", "CSV", class="btn-sm"),
             downloadButton("dl_table_word", "HTML/Word", class="btn-sm")
         )
+      ),
+
+      # --- DATASET VIEWER PLACEHOLDER ---
+      conditionalPanel(
+        condition = "input.viz_view === 'Dataset Viewer'",
+        helpText("No specific settings available for the Dataset Viewer.")
       )
     ),
     
@@ -275,7 +282,14 @@ ui <- page_sidebar(
           uiOutput("plot_container")
         ),
         nav_panel("Result Table", 
-           uiOutput("table_container")
+           div(style = "min-height: 30vh;",
+               uiOutput("table_container")
+           )
+        ),
+        nav_panel("Dataset Viewer", 
+           div(style = "min-height: 30vh;",
+               DTOutput("dataset_viewer")
+           )
         ),
         nav_spacer(),
         nav_item(
@@ -438,6 +452,26 @@ server <- function(input, output, session) {
         updateSelectInput(session, "viz_group_order", choices = grp_choices, selected = grp_choices)
         updateSelectInput(session, "tbl_group_order", choices = grp_choices, selected = grp_choices)
      }
+  })
+
+  # Render Dataset Viewer
+  output$dataset_viewer <- renderDT({
+    req(data())
+    datatable(data(), 
+      extensions = c("Buttons", "Scroller", "Responsive"),
+      options = list(
+        dom = 'Bfrtip',
+        buttons = list(
+           list(extend = 'copy', title = NULL),
+           list(extend = 'csv', filename = paste0("dataset_", Sys.Date()), title = NULL),
+           list(extend = 'excel', filename = paste0("dataset_", Sys.Date()), title = NULL)
+        ),
+        scrollY = 400,
+        scroller = TRUE,
+        scrollX = TRUE, 
+        pageLength = 10
+      )
+    )
   })
 
   # B. Smart Analysis Engine
@@ -1501,6 +1535,24 @@ server <- function(input, output, session) {
     res <- results()
     df <- data()
     
+    # --- MATCHING VAR TYPE OVERRIDES ---
+    p_outcome <- input$outcome_var
+    p_group <- input$group_var
+    
+    if(input$force_outcome_type != "Auto" && !is.null(p_outcome) && p_outcome %in% names(df)) {
+       if(input$force_outcome_type == "Numeric") {
+          df[[p_outcome]] <- as.numeric(as.character(df[[p_outcome]]))
+       } else if(input$force_outcome_type == "Categorical") {
+          df[[p_outcome]] <- as.factor(df[[p_outcome]])
+       }
+    }
+    if(input$force_group_type != "Auto" && !is.null(p_group) && p_group %in% names(df)) {
+       if(input$force_group_type == "Categorical") {
+          df[[p_group]] <- as.factor(df[[p_group]])
+       }
+    }
+    # -----------------------------------
+    
     # SAFETY CHECK: Ensure columns exist in current dataset
     # This prevents crash when switching datasets while analysis results from previous dataset persist
     needed_cols <- NULL
@@ -1752,29 +1804,108 @@ server <- function(input, output, session) {
   })
   
   # Dynamic Table Observers
-  observe({
-     dat <- table_data_list()
-     req(dat)
-     
-     for(i in seq_along(dat$tables)) {
+   observe({
+      dat <- table_data_list()
+      req(dat)
+      
+      for(i in seq_along(dat$tables)) {
          local({
             my_i <- i
             tbl <- dat$tables[[my_i]]
             
-            output[[paste0("dyn_main_", my_i)]] <- renderTable({ tbl$main }, striped=TRUE, hover=TRUE, width="100%", digits=input$decimal_places %||% 2)
+            # 1. Filename (Matches HTML export format style)
+            fname <- paste0("biostat_result_", Sys.Date())
+            
+            # 2. Footnote for Export (messageBottom)
+            # Combine Test Note + Levene + Sphericity + Posthoc (if applicable)
+            ft_export <- paste("Test:", tbl$test_note)
+            if(!is.null(tbl$levene) && tbl$levene != "") ft_export <- paste(ft_export, tbl$levene)
+            if(!is.null(tbl$sphericity) && tbl$sphericity != "") ft_export <- paste(ft_export, tbl$sphericity)
+            if(!is.null(tbl$posthoc)) ft_export <- paste(ft_export, "\nPost-hoc:", tbl$posthoc)
+            
+            # 3. Button Configuration
+            # dom='Bfrtip' places Buttons (B) above the Table. 
+            # The Table includes the Caption (Title), so Buttons -> Caption -> Table.
+            
+            dt_opts <- list(
+               dom = 'Bfrtip', 
+               buttons = list(
+                  list(extend = 'copy', messageBottom = ft_export, title = ""),
+                  list(extend = 'csv', filename = fname, messageBottom = ft_export),
+                  list(extend = 'excel', filename = fname, messageBottom = ft_export, title = NULL) 
+                  # title=NULL to rely on Caption (avoids double title)
+               ),
+               paging = FALSE,
+               scrollX = TRUE,
+               ordering = FALSE,
+               searching = FALSE,
+               info = FALSE
+            )
+            
+            # 4. Render Main Table
+            # Use Caption for Title ("Buttons above Title" effect)
+            cap_main <- if(isTRUE(input$show_table_title)) {
+               htmltools::tags$caption(style = 'caption-side: top; text-align: left; color: black; font-weight: bold; font-size: 1.1em;', tbl$title)
+            } else NULL
+            
+            output[[paste0("dyn_main_", my_i)]] <- renderDT({ 
+                datatable(tbl$main, extensions = 'Buttons', options = dt_opts, caption = cap_main) %>%
+                formatRound(columns = names(tbl$main)[sapply(tbl$main, is.numeric)], digits = input$decimal_places %||% 2)
+            })
+            
+            # 5. Render Normality Table
+            # Custom title and simple footnote for this specific table if needed, 
+            # but usually global footnote is fine or we keep it simple.
+            dt_opts_norm <- dt_opts
+            dt_opts_norm$buttons <- list(
+               list(extend='copy', title=""),
+               list(extend='csv', filename=paste0(fname, "_norm"), title=NULL),
+               list(extend='excel', filename=paste0(fname, "_norm"), title=NULL)
+            )
+            cap_norm <- if(input$show_shapiro) {
+                htmltools::tags$caption(style = 'caption-side: top; text-align: left; color: black; font-weight: bold;', "Shapiro-Wilk Test for Normality")
+            } else NULL
+            
             if(!is.null(tbl$norm)) {
-               output[[paste0("dyn_norm_", my_i)]] <- renderTable({ tbl$norm }, striped=TRUE, width="100%")
+               output[[paste0("dyn_norm_", my_i)]] <- renderDT({ 
+                   datatable(tbl$norm, extensions = 'Buttons', options = dt_opts_norm, caption = cap_norm) 
+               })
             }
+            
+            # 6. Render Pairwise Table
+            dt_opts_pw <- dt_opts # Reuse export footnote
+            dt_opts_pw$buttons <- list(
+               list(extend='copy', messageBottom = ft_export, title = ""),
+               list(extend='csv', filename=paste0(fname, "_pairwise"), messageBottom = ft_export),
+               list(extend='excel', filename=paste0(fname, "_pairwise"), messageBottom = ft_export, title=NULL)
+            )
+            cap_pw <- if(input$show_pairwise) {
+                 htmltools::tags$caption(style = 'caption-side: top; text-align: left; color: black; font-weight: bold;', "Pairwise Comparisons")
+            } else NULL
+            
             if(!is.null(tbl$pairwise)) {
-               output[[paste0("dyn_pw_", my_i)]] <- renderTable({ tbl$pairwise }, striped=TRUE)
+               output[[paste0("dyn_pw_", my_i)]] <- renderDT({ 
+                   datatable(tbl$pairwise, extensions = 'Buttons', options = dt_opts_pw, caption = cap_pw) 
+               })
             }
          })
-     }
-  })
+      }
+   })
 
   output$table_container <- renderUI({
      dat <- table_data_list()
-     req(dat)
+     
+     # Placeholder if no results yet
+     # Placeholder if no results yet
+     if(is.null(dat)) {
+        return(div(style="min-height: 30vh; display: flex; align-items: center; justify-content: center; color: #aaa; text-align: center;",
+           div(
+              icon("chart-simple", class = "fa-3x", style = "margin-bottom: 15px; display: block;"),
+              h4("Run Analysis to view results")
+           )
+        ))
+     }
+
      
      ui_list <- lapply(seq_along(dat$tables), function(i) {
         tbl <- dat$tables[[i]]
@@ -1797,18 +1928,18 @@ server <- function(input, output, session) {
 
         div(class = "card", style = "margin-bottom: 20px;",
            div(class = "card-body",
-              if(isTRUE(input$show_table_title)) h5(tbl$title, class="card-title") else NULL,
-              tableOutput(paste0("dyn_main_", i)),
+              # if(isTRUE(input$show_table_title)) h5(tbl$title, class="card-title") else NULL, # Title moved to DT Caption
+              DTOutput(paste0("dyn_main_", i)),
               main_foot,
               
               if(input$show_shapiro && !is.null(tbl$norm)) tagList(
-                 h6("Shapiro-Wilk Test for Normality", style="margin-top: 15px;"),
-                 tableOutput(paste0("dyn_norm_", i))
+                 # h6("Shapiro-Wilk Test for Normality", style="margin-top: 15px;"), # Title moved to DT Caption
+                 DTOutput(paste0("dyn_norm_", i))
               ) else NULL,
               
               if(input$show_pairwise && !is.null(tbl$pairwise)) tagList(
-                 h6("Pairwise Comparisons", style="margin-top: 15px;"),
-                 tableOutput(paste0("dyn_pw_", i)),
+                 # h6("Pairwise Comparisons", style="margin-top: 15px;"), # Title moved to DT Caption
+                 DTOutput(paste0("dyn_pw_", i)),
                  ph_foot
               ) else NULL
            )
@@ -1819,31 +1950,7 @@ server <- function(input, output, session) {
   })
   
   # Export Handlers
-  output$dl_table_csv <- downloadHandler(
-    filename = function() { paste0("biostat_results_", Sys.Date(), ".csv") },
-    content = function(file) {
-      dat <- table_data_list()
-      req(dat)
-      
-      # Iterate and append tables
-      for(i in seq_along(dat$tables)) {
-         tbl <- dat$tables[[i]]
-         
-         # Title: Overwrite if first, Append if subsequent (with spacing)
-         if(i == 1) {
-             cat(paste0("\"", tbl$title, "\"\n"), file = file)
-         } else {
-             cat(paste0("\n\n\"", tbl$title, "\"\n"), file = file, append = TRUE)
-         }
-         
-         # Write the data table
-         # using write.table with append=TRUE for safety after the title
-         suppressWarnings(
-            write.table(tbl$main, file, sep = ",", row.names = FALSE, col.names = TRUE, append = TRUE, qmethod = "double", na = "")
-         )
-      }
-    }
-  )
+
   
   output$dl_table_word <- downloadHandler(
     filename = function() { paste0("biostat_report_", Sys.Date(), ".html") },
@@ -1924,9 +2031,9 @@ server <- function(input, output, session) {
            plotOutput("smart_plot", width = paste0(w, "px"), height = paste0(h, "px"))
         )
      } else {
-        # Responsive default - 40vh height with 220px minimum
-        div(style = "min-height: 220px;",
-            plotOutput("smart_plot", width = "100%", height = "40vh")
+        # Responsive default - Fill space but keep min 30vh
+        div(style = "height: 100%; min-height: 30vh;",
+            plotOutput("smart_plot", width = "100%", height = "100%", fill = TRUE)
         )
      }
   })
@@ -1953,6 +2060,24 @@ server <- function(input, output, session) {
     req(input$analyze)
     res <- results()
     df <- data()
+    
+    # --- MATCHING VAR TYPE OVERRIDES ---
+    p_outcome <- input$outcome_var
+    p_group <- input$group_var
+    
+    if(input$force_outcome_type != "Auto" && !is.null(p_outcome) && p_outcome %in% names(df)) {
+       if(input$force_outcome_type == "Numeric") {
+          df[[p_outcome]] <- as.numeric(as.character(df[[p_outcome]]))
+       } else if(input$force_outcome_type == "Categorical") {
+          df[[p_outcome]] <- as.factor(df[[p_outcome]])
+       }
+    }
+    if(input$force_group_type != "Auto" && !is.null(p_group) && p_group %in% names(df)) {
+       if(input$force_group_type == "Categorical") {
+          df[[p_group]] <- as.factor(df[[p_group]])
+       }
+    }
+    # -----------------------------------
     
     # SAFETY CHECK: Ensure columns exist in current dataset
     needed_cols <- NULL
