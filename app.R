@@ -21,11 +21,6 @@ library(tidyr)      # For data reshaping
 library(scales)     # Explicitly load for formatting
 library(svglite)    # Explicitly load for SVG export
 library(munsell)    # Explicitly load to fix ggplot2 dependency error
-library(DT)         # For interactive tables
-
-# Ensure 'www' content is mapped to 'assets' for consistent access in Shinylive
-addResourcePath("assets", "www")
-
 # ==============================================================================
 # 1. THE FRONTEND (UI)
 # This section defines what the user sees.
@@ -34,7 +29,7 @@ ui <- page_sidebar(
   # A. The Theme (Medical/Clean look)
   theme = bs_theme(bootswatch = "minty"), 
   tags$head(
-    tags$link(rel = "icon", type = "image/svg+xml", href = "assets/logo.svg"),
+    tags$link(rel = "icon", href = "favicon.ico"),
     tags$style(HTML("
       /* Make Accordion Transparent in Sidebar */
       .accordion-button {
@@ -50,7 +45,7 @@ ui <- page_sidebar(
       }
     ")),
   ), 
-  title = div(img(src = "assets/logo.svg", height = "40px", style = "margin-right: 10px; vertical-align: middle;"), "DARK-ART: Data Analysis Rapid Kit-Automated R Tool"),
+  title = div(img(src = "logo.svg", height = "40px", style = "margin-right: 10px; vertical-align: middle;"), "DARK-ART: Data Analysis Rapid Kit-Automated R Tool"),
   
   # B. The Sidebar (Inputs)
   sidebar = sidebar(
