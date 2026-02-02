@@ -129,10 +129,11 @@ The application employs a robust decision logic to select the most appropriate s
 
 If you find this tool useful, consider supporting its development:
 
-[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://paypal.me/gourean)
+[![Donate](https://raw.githubusercontent.com/stefan-niedermann/paypal-donate-button/master/paypal-donate-button.png)](https://paypal.me/gourean)
 
-## Credits
+## Development
 
 Developed via **Vibe Coding** with **Gemini 3 Pro**.
+
 
 
