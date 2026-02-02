@@ -31,7 +31,7 @@ ui <- page_sidebar(
   # A. The Theme (Medical/Clean look)
   theme = bs_theme(bootswatch = "minty"), 
   tags$head(
-    tags$link(rel = "icon", type = "image/svg+xml", href = "logo.svg"),
+    tags$link(rel = "icon", href = "favicon.ico"),
     tags$style(HTML("
       /* Make Accordion Transparent in Sidebar */
       .accordion-button {
