@@ -45,6 +45,38 @@ ui <- page_sidebar(
       .accordion-button:not(.collapsed) {
          background-color: rgba(0,0,0,0.05) !important;
       }
+
+      /* Mobile Layout Adjustments */
+      @media (max-width: 767.98px) {
+        /* Force outer sidebar to top */
+        .bslib-page-sidebar > .bslib-sidebar-layout {
+            display: flex !important;
+            flex-direction: column !important;
+        }
+        /* Left Sidebar (Input) */
+        .bslib-page-sidebar > .bslib-sidebar-layout > .sidebar {
+            order: -1 !important; /* Move to Top */
+            width: 100% !important;
+            height: auto !important;
+            margin-bottom: 20px !important;
+        }
+        /* Main Content */
+        .bslib-page-sidebar > .bslib-sidebar-layout > .main {
+            order: 1 !important; /* Middle */
+        }
+        
+        /* INNER Sidebar (Right Sidebar - Settings) */
+        #settings_sidebar.bslib-sidebar-layout {
+            display: flex !important;
+            flex-direction: column !important;
+        }
+        #settings_sidebar > .main {
+            order: 1 !important; /* Visualization Top */
+        }
+        #settings_sidebar > .sidebar {
+            order: 2 !important; /* Settings Bottom */
+        }
+      }
     ")),
   ), 
   title = div(img(src = "logo.svg", height = "40px", style = "margin-right: 10px; vertical-align: middle;"), "DARK-ART: Data Analysis Rapid Kit-Automated R Tool"),
