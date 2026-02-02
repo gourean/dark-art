@@ -21,6 +21,7 @@ library(tidyr)      # For data reshaping
 library(scales)     # Explicitly load for formatting
 library(svglite)    # Explicitly load for SVG export
 library(munsell)    # Explicitly load to fix ggplot2 dependency error
+library(DT)         # For interactive tables
 # ==============================================================================
 # 1. THE FRONTEND (UI)
 # This section defines what the user sees.
@@ -29,7 +30,7 @@ ui <- page_sidebar(
   # A. The Theme (Medical/Clean look)
   theme = bs_theme(bootswatch = "minty"), 
   tags$head(
-    tags$link(rel = "icon", href = "favicon.ico"),
+    tags$link(rel = "icon", type = "image/svg+xml", href = "logo.svg"),
     tags$style(HTML("
       /* Make Accordion Transparent in Sidebar */
       .accordion-button {
