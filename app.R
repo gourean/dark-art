@@ -2175,7 +2175,10 @@ server <- function(input, output, session) {
     # 1. CORRELATION PLOT
     # -------------------------------------------------------------
     if(!is.null(res$mode) && res$mode == "correlation") {
-       df_plot <- df[, c(res$params$var1, res$params$var2)]
+      df_plot <- df[, c(res$params$var1, res$params$var2)]
+       # FIX: Force numeric conversion for plotting to safe-guard geom_smooth against Factors
+       df_plot[[res$params$var1]] <- as.numeric(df_plot[[res$params$var1]])
+       df_plot[[res$params$var2]] <- as.numeric(df_plot[[res$params$var2]])
        df_plot <- na.omit(df_plot)
        
        # Determine point and line colors based on color settings
@@ -2699,21 +2702,7 @@ server <- function(input, output, session) {
        # ----------------------------------
        # CORRELATION PLOT
        # ----------------------------------
-       if(!is.null(res$mode) && res$mode == "correlation") {
-          # Correlation Scatter
-           p <- ggplot(df_plot, aes(x = .data[[p_corr1]], y = .data[[p_corr2]])) +
-             geom_point(color = in_solid, size = 2, alpha = 0.6) +
-             geom_smooth(method = if(res$test == "Pearson Correlation") "lm" else "loess", color = "black", fill = "grey80", linewidth = 0.8) +
-             my_theme
-           
-           # Dynamic Title
-           final_title <- if(nchar(in_title) > 0) in_title else paste("Correlation:", p_corr1, "vs", p_corr2)
-           if(!isTRUE(input$show_plot_title)) final_title <- NULL
-           
-           p <- p + labs(title = final_title, x = p_corr1, y = p_corr2)
-           
-           return(p)
-       }
+
 
         if(is.factor(y) || is.character(y)) {
         # ----------------------------------
