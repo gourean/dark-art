@@ -22,6 +22,7 @@ library(scales)     # Explicitly load for formatting
 library(svglite)    # Explicitly load for SVG export
 library(munsell)    # Explicitly load to fix ggplot2 dependency error
 library(DT)         # For interactive tables
+
 # ==============================================================================
 # 1. THE FRONTEND (UI)
 # This section defines what the user sees.
