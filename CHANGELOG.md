@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * **Stability**: Resolved "max not meaningful for factors" error that occurred during specific categorical analyses.
 
-## \[1.0.0] - 2026-01-31
+## \[1.0.0] - 2026-01-30
 
 ### Added
 
@@ -52,3 +52,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * Auto-significance brackets.
 
 * **Reporting**: Natural language interpretation of statistical results.
+
