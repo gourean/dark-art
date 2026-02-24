@@ -13,10 +13,12 @@
 ## Key Features
 
 *   **Data Import & Inspection**:
-    *   Accepts .csv files.
-    *   **New**: **Datasheet Viewer** tab to inspect and verify uploaded data directly.
+    *   Accepts .csv files (supports special characters in headers).
+    *   **New**: **Data Editor** tab to inspect and modify uploaded data directly.
     *   Auto-detects numeric and categorical variable types with manual override options.
-    *   **Export**: Copy raw data to clipboard, or export to CSV/Excel from the viewer.
+    *   **Edit**: Edit data (double-click cells), add/delete rows and columns, rename/reorder variables.
+    *   **Filter**: Subset your data by selecting a specific variable and value(s) to include in the analysis.
+    *   **Export**: Copy data to clipboard, or export to CSV from the editor.
 
 *   **Supported Analysis**:
     *   **Independent Groups**: 
@@ -33,7 +35,9 @@
 
 *   **Visualizations**:
     *   Publication-ready plots based on ggplot2.
-    *   **Customization**: Fully adjustable titles, axis labels, fonts, sizes, and colors.
+    *   **Customization**: Fully adjustable titles, axis labels, fonts, sizes (text, points, strokes), colors, and axis gaps (X/Y).
+    *   **Reset**: "Reset Appearance" button to quickly restore defaults.
+    *   **Smart Reset**: Automatically clears custom axis labels, titles, and scale limits when variables change.
     *   **Significance**: Auto-generated significance brackets and p-values/stars.
     *   **Export**: High-resolution downloads in PDF, SVG, and JPEG formats.
 
@@ -45,7 +49,7 @@
 
 *   **Table Results**:
     *   **Export**: Download result tables as **HTML/Word** documents or CSV.
-    *   Includes pairwise comparison tables and descriptive statistics.
+    *   Includes pairwise comparison tables, descriptive statistics, and **Sample Size (N)** per group.
 
 *   **User Interface**:
     *   **Mobile Friendly**: Optimized layout for responsiveness on smaller screens.
@@ -95,6 +99,8 @@ install.packages(c(
     *   **Upload**: import your .csv dataset.
     *   **Configure**:
         *   Select **Basic** or **Advanced** complexity.
+            *   **Basic**: Standard Independent/Paired group comparisons.
+            *   **Advanced**: Unlocks **Correlation Analysis**, **Split Group Analysis** (subgrouping), **Filter Data**, and **Variable Type Overrides**.
         *   Choose your Analysis Mode (Independent, Paired, etc.).
         *   Select your Outcome (Dependent) and Grouping (Independent) variables.
     *   **Analyze**: Click **Run Analysis**.
@@ -103,7 +109,7 @@ install.packages(c(
 
 ## Methodology
 
-The application employs a robust decision logic to select the most appropriate statistical test:
+The application employs a robust decision logic to select the most appropriate statistical test. Crucially, the logic **automatically filters out empty groups** (groups with no valid outcome data) before determining the number of groups. This ensures that, for example, a factor with 3 levels where one is empty is correctly treated as a 2-group comparison (using T-Test/Mann-Whitney instead of ANOVA/Kruskal-Wallis).
 
 | Comparison | Normality Met? | Assumptions | Test Used | Post-hoc Analysis |
 | :--- | :--- | :--- | :--- | :--- |
@@ -134,6 +140,3 @@ If you find this tool useful, consider supporting its development:
 ## Development
 
 Developed via **Vibe Coding** with **Gemini 3 Pro**.
-
-
-

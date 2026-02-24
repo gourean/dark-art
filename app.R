@@ -28,8 +28,8 @@ library(DT)         # For interactive tables
 # This section defines what the user sees.
 # ==============================================================================
 ui <- page_sidebar(
-  # A. The Theme (Medical/Clean look)
-  theme = bs_theme(bootswatch = "minty"), 
+   # A. The Theme (Medical/Clean look)
+  theme = bs_theme(bootswatch = "minty", version = 5), 
   tags$head(
     tags$link(rel = "icon", href = "favicon.ico"),
     tags$style(HTML("
@@ -46,6 +46,11 @@ ui <- page_sidebar(
          background-color: rgba(0,0,0,0.05) !important;
       }
 
+      /* High Z-Index for Modals & Notifications to appear above Full Screen cards */
+      .modal-backdrop { z-index: 10000 !important; }
+      .modal { z-index: 10001 !important; }
+      .shiny-notification { z-index: 10002 !important; }
+
       /* Mobile Layout Adjustments */
       @media (max-width: 767.98px) {
         /* Force outer sidebar to top */
@@ -57,7 +62,8 @@ ui <- page_sidebar(
         .bslib-page-sidebar > .bslib-sidebar-layout > .sidebar {
             order: -1 !important; /* Move to Top */
             width: 100% !important;
-            height: auto !important;
+            max-height: 30vh !important;
+            overflow-y: auto !important;
             margin-bottom: 20px !important;
         }
         /* Main Content */
@@ -129,6 +135,13 @@ ui <- page_sidebar(
           selectInput("split_var", "Split By Variable:", choices = NULL) 
         ),
         
+        checkboxInput("enable_filter", "Filter Data", value = FALSE),
+        conditionalPanel(
+           condition = "input.enable_filter == true",
+           selectInput("filter_var", "Filter Variable:", choices = NULL),
+           uiOutput("filter_ui")
+        ),
+        
         hr(),
         tags$label("Variable Type Overrides", class = "control-label"),
         helpText("Force variables to be treated as specific types if auto-detection fails."),
@@ -146,7 +159,7 @@ ui <- page_sidebar(
     hr(), # Horizontal line
 
     # Note
-    helpText("Built by Wong GR. v1.1.0 available on ", a(href="https://github.com/gourean/dark-art", "Github", target="_blank"))
+    helpText("Built by Wong GR. v1.2.0 available on ", a(href="https://github.com/gourean/dark-art", "Github", target="_blank"))
   ),
   
   # C. The Main Display (Outputs) -> Nested Sidebar Layout
@@ -170,6 +183,7 @@ ui <- page_sidebar(
         checkboxInput("show_footnote_viz", "Show Test Name (Footnote)", value = TRUE),
         checkboxInput("show_jitter", "Show Data Points (Jitter)", value = FALSE),
         checkboxInput("remove_axis_gap", "Remove Gap from X-Axis", value = FALSE),
+        checkboxInput("remove_axis_gap_y", "Remove Gap from Y-Axis", value = TRUE),
         
         div(style = "margin-bottom: 10px;",
             checkboxInput("add_ref_line", "Add Reference Line", value = FALSE),
@@ -225,12 +239,21 @@ ui <- page_sidebar(
              # Font Settings
              numericInput("font_size", "Font Size (pt)", value = 15, min = 10, step = 1),
              selectInput("font_family", "Font Type", choices = c("Arial/Helvetica (Sans)"="sans", "Times/Georgia (Serif)"="serif", "Courier/Mono (Mono)"="mono")),
-             selectInput("font_style", "Font Style", choices = c("Plain"="plain", "Bold"="bold", "Italic"="italic", "Bold Italic"="bold.italic"))
+             selectInput("font_style", "Font Style", choices = c("Plain"="plain", "Bold"="bold", "Italic"="italic", "Bold Italic"="bold.italic")),
+             
+             hr(),
+             h6("Elements"),
+             numericInput("point_size", "Point Size", value = 2, min = 0.1, step = 0.5),
+             numericInput("stroke_width", "Stroke Width", value = 0.5, min = 0.1, step = 0.1),
+             
+             div(style="margin-top: 15px;",
+                 actionButton("reset_style", "Reset Appearance", icon = icon("rotate-left"), class = "btn-warning btn-sm", width = "100%")
+             )
           ),
           accordion_panel(
              "Advanced",
-             selectInput("viz_group_order", "Group Order", choices = NULL, multiple = TRUE),
-             helpText("To reorder: select the groups in desired order."),
+             actionButton("sidebar_reorder_btn", "Reorder Groups", icon = icon("sort"), width = "100%", class = "btn-secondary"), # Unified reorder logic
+             helpText("Note: This changes the underlying data factor levels."),
              
              hr(),
              h6("Significance Analysis"),
@@ -279,8 +302,7 @@ ui <- page_sidebar(
            accordion_panel(
               "Advanced",
               numericInput("decimal_places", "Decimal Places", value = 2, min = 0, max = 5),
-              selectInput("tbl_group_order", "Group Display Order", choices = NULL, multiple = TRUE),
-              helpText("To reorder: delete all selected items and re-select in desired order.")
+              helpText("Reorder groups via the 'Reorder Groups' button in visualization settings or Data Editor.")
            )
         ),
         
@@ -318,9 +340,33 @@ ui <- page_sidebar(
                uiOutput("table_container")
            )
         ),
-        nav_panel("Dataset Viewer", 
-           div(style = "min-height: 30vh;",
-               DTOutput("dataset_viewer")
+        nav_panel("Data Editor", 
+           div(class = "container-fluid", style = "padding-top: 10px;",
+               div(class = "d-flex justify-content-between align-items-center mb-2",
+                   div(
+                       h5("Edit Dataset", style="margin-bottom: 0; display: inline-block; margin-right: 10px;"),
+                       span("(Double-click cells to edit)", style="font-size: 0.9em; color: #666;")
+                   ),
+                   div(class = "d-flex gap-2 align-items-center",
+                       # Edit Controls
+                       div(class = "btn-group btn-group-sm", role = "group",
+                           actionButton("add_row_btn", "Row", icon = icon("plus"), class = "btn-secondary btn-sm"),
+                           actionButton("add_col_btn", "Col", icon = icon("plus"), class = "btn-secondary btn-sm")
+                       ),
+                       div(class = "btn-group btn-group-sm", role = "group",
+                           actionButton("rename_col_btn", "Col", icon = icon("pen"), class = "btn-secondary btn-sm"),
+                           actionButton("reorder_col_btn", "Cols", icon = icon("sliders"), class = "btn-secondary btn-sm"),
+                           actionButton("reorder_levels_btn", "Group", icon = icon("sort"), class = "btn-primary btn-sm"),
+                           actionButton("delete_row_btn", "Row", icon = icon("trash"), class = "btn-danger btn-sm")
+                       ),
+                       div(class = "btn-group btn-group-sm", role = "group",
+                           downloadButton("download_csv", "CSV", class = "btn-info btn-sm")
+                       )
+                   )
+               ),
+               div(style = "min-height: 24vh;",
+                   uiOutput("data_table_ui") # Dynamic container for re-render
+               )
            )
         ),
         nav_spacer(),
@@ -353,7 +399,9 @@ server <- function(input, output, session) {
 
   # 1. Load Data from File Upload
   observeEvent(input$file, {
-    vals$data <- read.csv(input$file$datapath, stringsAsFactors = TRUE)
+    vals$data <- read.csv(input$file$datapath, stringsAsFactors = TRUE, check.names = FALSE)
+    vals$editing_data <- vals$data
+    vals$dt_trigger <- vals$dt_trigger + 1
   })
 
   # 2. Generate Dummy Data (On Click)
@@ -391,6 +439,8 @@ server <- function(input, output, session) {
     df$Outcome <- as.factor(df$Outcome)
     
     vals$data <- df
+    vals$editing_data <- df
+    vals$dt_trigger <- vals$dt_trigger + 1
     
     # Notification
     showNotification("Dummy dataset loaded! Select your variables and hit run!", type = "message")
@@ -432,6 +482,64 @@ server <- function(input, output, session) {
     # Update Split Variable Dropdown (Restrict to safe categories too)
     updateSelectInput(session, "split_var", choices = cats)
   })
+
+  # --- DYNAMIC FILTER UPDATES ---
+  observeEvent(data(), {
+     req(data())
+     updateSelectInput(session, "filter_var", choices = names(data()))
+  })
+
+  # Render the Filter UI based on variable type
+  output$filter_ui <- renderUI({
+     req(input$filter_var, data())
+     df <- data()
+     if(input$filter_var %in% names(df)) {
+        col_data <- df[[input$filter_var]]
+        
+        # Categorical / Factor
+        if(is.factor(col_data) || is.character(col_data)) {
+           vals <- if(is.factor(col_data)) levels(col_data) else sort(unique(col_data))
+           return(selectizeInput("filter_val", "Select Value(s):", choices = vals, multiple = TRUE))
+        } 
+        
+        # Numeric
+        if(is.numeric(col_data)) {
+           tagList(
+              selectInput("filter_op", "Operator:", 
+                          choices = c("One of (Exact)" = "in", 
+                                      "Greater Than (>)" = "gt", 
+                                      "Less Than (<)" = "lt",
+                                      "Greater or Equal (>=)" = "ge",
+                                      "Less or Equal (<=)" = "le",
+                                      "Equal To (=)" = "eq",
+                                      "Not Equal To (!=)" = "ne")),
+              uiOutput("filter_val_ui")
+           )
+        }
+     }
+  })
+  
+  # Render the specific value input based on Operator
+  output$filter_val_ui <- renderUI({
+     req(input$filter_var, data())
+     # Default to "in" if not yet initialized
+     op <- if(is.null(input$filter_op)) "in" else input$filter_op
+     
+     df <- data()
+     req(input$filter_var %in% names(df))
+     col_data <- df[[input$filter_var]]
+     
+     if(op == "in") {
+        # Discrete selection for numeric
+        vals <- sort(unique(col_data))
+        selectizeInput("filter_val", "Select Value(s):", choices = vals, multiple = TRUE)
+     } else {
+        # Continuous input
+        # Set default value to median or min?
+        def_val <- median(col_data, na.rm=TRUE)
+        numericInput("filter_val_num", "Value:", value = def_val)
+     }
+  })
   
   # Dynamic Analysis Mode Choices
   observeEvent(input$analysis_complexity, {
@@ -452,6 +560,10 @@ server <- function(input, output, session) {
                         "Paired Groups" = "Paired"),
             selected = new_sel
          )
+         
+         # Reset Advanced Options
+         updateCheckboxInput(session, "enable_split", value = FALSE)
+         updateCheckboxInput(session, "enable_filter", value = FALSE)
       }
   })
 
@@ -481,29 +593,267 @@ server <- function(input, output, session) {
      # Update Inputs if choices exist
      # FORCE update the selection to "All" whenever the configuration changes.
      if(!is.null(grp_choices)) {
-        updateSelectInput(session, "viz_group_order", choices = grp_choices, selected = grp_choices)
-        updateSelectInput(session, "tbl_group_order", choices = grp_choices, selected = grp_choices)
+        # updateSelectInput(session, "viz_group_order", choices = grp_choices, selected = grp_choices)
+        # updateSelectInput(session, "tbl_group_order", choices = grp_choices, selected = grp_choices)
      }
   })
 
   # Render Dataset Viewer
-  output$dataset_viewer <- renderDT({
-    req(data())
-    datatable(data(), 
-      extensions = c("Buttons", "Scroller", "Responsive"),
-      options = list(
-        dom = 'Bfrtip',
-        buttons = list(
-           list(extend = 'copy', title = NULL),
-           list(extend = 'csv', filename = paste0("dataset_", Sys.Date()), title = NULL),
-           list(extend = 'excel', filename = paste0("dataset_", Sys.Date()), title = NULL)
-        ),
-        scrollY = 400,
-        scroller = TRUE,
-        scrollX = TRUE, 
-        pageLength = 10
+  # --- C. DATA EDITOR ENGINE ---
+  
+  # 1. Initialize Editing Data
+  observe({
+    req(vals$data)
+    if(is.null(vals$editing_data)) {
+       vals$editing_data <- vals$data
+    }
+  })
+  
+  # Sync Logic: When editing_data changes -> update vals$data (The Analysis Source)
+  observe({
+     req(vals$editing_data)
+     vals$data <- vals$editing_data
+  })
+  
+  # 2. Render DT
+  vals$dt_trigger <- 0 # Trigger to force re-render
+  
+  output$data_table_ui <- renderUI({
+    # Dependency on trigger to force rebuild
+    val <- vals$dt_trigger
+    DTOutput("data_table")
+  })
+  
+  output$data_table <- renderDT({
+    req(vals$editing_data)
+    
+    isolate({
+      datatable(vals$editing_data, 
+                editable = TRUE, 
+                extensions = c("Buttons", "Scroller", "KeyTable"),
+                options = list(
+                  dom = 'frtip',
+                  # buttons = list('copy', 'csv'), # Removed as per v1.2.0 request
+                  keys = TRUE,
+                  scrollX = TRUE,
+                  scrollY = 500,
+                  scroller = TRUE,
+                  pageLength = 20 # Show more by default
+                ),
+                selection = "multiple", # Allow row selection
+                callback = JS("
+                    table.on('key', function(e, datatable, key, cell, originalEvent){
+                      var targetName = originalEvent.target.localName;
+                      if(key == 13 && targetName == 'body'){
+                        $(cell.node()).trigger('dblclick.dt');
+                      }
+                    });
+                    // Global listener for input field to blur on Enter
+                    $(document).on('keydown', '.dataTable input', function(e) {
+                      if(e.which === 13) {
+                         e.preventDefault();
+                         $(this).blur();
+                      }
+                    });
+                 ")
       )
-    )
+    })
+  })
+  
+  proxy_dt <- dataTableProxy("data_table")
+  
+  # 3. Handle Cell Edits
+  observeEvent(input$data_table_cell_edit, {
+    info <- input$data_table_cell_edit
+    i <- info$row
+    j <- info$col 
+    v <- info$value
+    
+    current_val <- vals$editing_data[i, j]
+    
+    # Type Coercion Safety
+    new_val <- tryCatch({
+      DT::coerceValue(v, current_val)
+    }, error = function(e) v)
+    
+    # Factor Handling: Add level if new
+    if(is.factor(current_val)) {
+      if(!(new_val %in% levels(vals$editing_data[[j]]))) {
+        # If strict factor, maybe convert to char? Or expand levels.
+        # Let's convert column to character to allow flexibility, then re-factor if needed.
+        # OR: Just add the level.
+        levels(vals$editing_data[[j]]) <- c(levels(vals$editing_data[[j]]), new_val)
+      }
+    }
+    
+    vals$editing_data[i, j] <- new_val
+  })
+  
+  # 4. Structure Edits
+  
+  # Add Row
+  observeEvent(input$add_row_btn, {
+    req(vals$editing_data)
+    df <- vals$editing_data
+    new_row <- df[1, ]; is.na(new_row) <- TRUE # Empty row with same types
+    
+    # Fix factors in new row
+    for(k in 1:ncol(new_row)) {
+        if(is.factor(new_row[[k]])) new_row[[k]] <- levels(new_row[[k]])[1]
+        if(is.numeric(new_row[[k]])) new_row[[k]] <- 0
+    }
+    
+    vals$editing_data <- rbind(df, new_row)
+    vals$dt_trigger <- vals$dt_trigger + 1
+    showNotification("Row added at bottom.", type = "message")
+  })
+  
+  # Add Column
+  observeEvent(input$add_col_btn, {
+    showModal(modalDialog(
+      title = "Add New Column",
+      textInput("new_col_name", "Column Name", placeholder = "NewVar"),
+      selectInput("new_col_type", "Type", choices = c("Numeric", "Text")),
+      footer = tagList(modalButton("Cancel"), actionButton("confirm_add_col", "Add", class = "btn-primary"))
+    ))
+  })
+  
+  observeEvent(input$confirm_add_col, {
+    req(input$new_col_name)
+    removeModal()
+    if(input$new_col_name %in% names(vals$editing_data)) { showNotification("Name exists.", type="error"); return() }
+    
+    df <- vals$editing_data
+    n <- nrow(df)
+    new_col <- if(input$new_col_type == "Numeric") rep(0, n) else rep("", n)
+    df[[input$new_col_name]] <- new_col
+    vals$editing_data <- df
+    vals$dt_trigger <- vals$dt_trigger + 1
+  })
+  
+  # Delete Row
+  observeEvent(input$delete_row_btn, {
+    req(vals$editing_data)
+    sel <- input$data_table_rows_selected
+    if(length(sel) == 0) { showNotification("Select rows to delete.", type="warning"); return() }
+    
+    vals$editing_data <- vals$editing_data[-sel, , drop = FALSE]
+    vals$dt_trigger <- vals$dt_trigger + 1
+    showNotification("Rows deleted.", type = "message")
+  })
+  
+  # CSV Download
+  output$download_csv <- downloadHandler(
+    filename = function() { paste0("edited_data_", Sys.Date(), ".csv") },
+    content = function(file) { write.csv(vals$editing_data, file, row.names = FALSE) }
+  )
+  
+  # Rename Column
+  observeEvent(input$rename_col_btn, {
+     req(vals$editing_data)
+     showModal(modalDialog(
+        title = "Rename Column",
+        selectInput("rename_target", "Select Column", choices = names(vals$editing_data)),
+        textInput("rename_new_name", "New Name"),
+        footer = tagList(modalButton("Cancel"), actionButton("confirm_rename", "Rename", class="btn-primary"))
+     ))
+  })
+  observeEvent(input$confirm_rename, {
+     req(input$rename_new_name)
+     removeModal()
+     old <- input$rename_target; new <- input$rename_new_name
+     if(new %in% names(vals$editing_data)) { showNotification("Name exists.", type="error"); return() }
+     
+     df <- vals$editing_data
+     names(df)[names(df) == old] <- new
+     vals$editing_data <- df
+     vals$dt_trigger <- vals$dt_trigger + 1
+  })
+  
+  # Reorder Columns
+   observeEvent(input$reorder_col_btn, {
+    req(vals$editing_data)
+    cols <- names(vals$editing_data)
+    showModal(modalDialog(
+      title = "Reorder Columns",
+      selectizeInput("reorder_cols_list", "Drag to Reorder", choices = cols, selected = cols, multiple = TRUE, options = list(plugins = list('drag_drop'))),
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("confirm_reorder_col_struct", "Confirm", class = "btn-primary")
+      )
+    ))
+  })
+  
+  observeEvent(input$confirm_reorder_col_struct, {
+     req(input$reorder_cols_list)
+     removeModal()
+     if(length(input$reorder_cols_list) == 0) return()
+     vals$editing_data <- vals$editing_data[, input$reorder_cols_list, drop=FALSE]
+     vals$dt_trigger <- vals$dt_trigger + 1
+  })
+
+  # --- D. ROBUST GROUP ORDERING (Global) ---
+  
+  # Helper to identify Categorical Variables
+  get_cats <- reactive({
+     req(vals$editing_data)
+     df <- vals$editing_data
+     names(df)[sapply(df, function(x) is.factor(x) || is.character(x))]
+  })
+  
+  # Unified Trigger: Sidebar OR Editor Button
+  observeEvent(list(input$reorder_levels_btn, input$sidebar_reorder_btn), {
+     req(vals$editing_data)
+     cats <- get_cats()
+     if(length(cats) == 0) { showNotification("No categorical variables found.", type="warning"); return() }
+     
+     showModal(modalDialog(
+        title = "Select Variable to Reorder",
+        selectInput("reorder_target_var", "Variable", choices = cats),
+        footer = tagList(modalButton("Cancel"), actionButton("goto_reorder_step2", "Next", class="btn-primary"))
+     ))
+  }, ignoreInit = TRUE)
+  
+  observeEvent(input$goto_reorder_step2, {
+     req(input$reorder_target_var)
+     removeModal()
+     target <- input$reorder_target_var
+     
+     # Get unique levels
+     col_data <- vals$editing_data[[target]]
+     lvls <- if(is.factor(col_data)) levels(col_data) else unique(as.character(col_data))
+     
+     showModal(modalDialog(
+        title = paste("Reorder Levels:", target),
+        helpText("Drag and drop to set the desired order. Top item = First Group."),
+        selectizeInput("new_level_order", NULL, choices = lvls, selected = lvls, multiple = TRUE, options = list(plugins = list('drag_drop'))),
+        footer = tagList(modalButton("Cancel"), actionButton("confirm_level_reorder", "Apply", class="btn-success"))
+     ))
+  })
+  
+  observeEvent(input$confirm_level_reorder, {
+     req(input$new_level_order)
+     removeModal()
+     
+     target <- input$reorder_target_var
+     new_ord <- input$new_level_order
+     
+     # Apply to Global Data
+     df <- vals$editing_data
+     # Check consistency
+     current_items <- if(is.factor(df[[target]])) levels(df[[target]]) else unique(as.character(df[[target]]))
+     # Ensure we have all items (user might accidentally delete one in selectize)
+     if(!all(current_items %in% new_ord)) {
+        showNotification("Error: You dropped some levels. Please include all.", type="error")
+        return()
+     }
+     
+     # Refactor
+     df[[target]] <- factor(df[[target]], levels = new_ord)
+     vals$editing_data <- df
+     vals$dt_trigger <- vals$dt_trigger + 1 # Force redraw of table
+     
+     showNotification(paste("Updated order for", target), type = "message")
   })
 
   # B. Smart Analysis Engine
@@ -511,6 +861,48 @@ server <- function(input, output, session) {
     # 1. INITIAL SETUP & TYPE OVERRIDES
     req(input$analysis_type)
     df_raw <- data()
+    
+    # [NEW] Filter Logic (Applies before analysis)
+    if(isTRUE(input$enable_filter) && !is.null(input$filter_var)) {
+       req(input$filter_var %in% names(df_raw))
+       
+       f_var <- df_raw[[input$filter_var]]
+       
+       # Determine Filter Type
+       # If filter_op is present, we use it. If not (Categorical), we assume "in".
+       op <- if(!is.null(input$filter_op)) input$filter_op else "in"
+       
+       keep_rows <- TRUE # Default
+       
+       if(op == "in") {
+          req(input$filter_val)
+          keep_rows <- f_var %in% input$filter_val
+       } else {
+          req(input$filter_val_num)
+          val <- input$filter_val_num
+          if(op == "gt") keep_rows <- f_var > val
+          if(op == "lt") keep_rows <- f_var < val
+          if(op == "ge") keep_rows <- f_var >= val
+          if(op == "le") keep_rows <- f_var <= val
+          if(op == "eq") keep_rows <- f_var == val # Exact numeric match
+          if(op == "ne") keep_rows <- f_var != val
+       }
+       
+       # Apply Filter
+       df_raw <- df_raw[keep_rows, , drop = FALSE]
+       
+       if(nrow(df_raw) == 0) {
+          showNotification("Filter results in empty dataset. Check your selection.", type = "error")
+          return(list(test="Error", note="No data after filtering.")) 
+       } else {
+          showNotification(paste("Filtered dataset: N =", nrow(df_raw)), type = "message")
+       }
+       
+       # Optional: Drop unused levels to clean up plots/tables
+       if(input$analysis_complexity == "Advanced") {
+          df_raw <- droplevels(df_raw)
+       }
+    }
     
     # helper to safely retrieve inputs
     a_type <- input$analysis_type
@@ -622,6 +1014,14 @@ server <- function(input, output, session) {
              
           } else {
              # Branch 2: Numeric Outcome
+             
+             # Filter out NAs in outcome and drop empty groups to allow correct test selection (e.g. 2 vs >2)
+             valid_idx <- !is.na(y)
+             y <- y[valid_idx]
+             x <- x[valid_idx]
+             x <- droplevels(x)
+             groups <- levels(x)
+
              # Check normality PER GROUP instead of on pooled data
              is_normal <- TRUE
              for(g in groups) {
@@ -1186,6 +1586,8 @@ server <- function(input, output, session) {
        
        s_vec <- as.factor(s_vec)
        lvls <- levels(s_vec)
+       # Remove empty strings from levels to avoid ghost groups
+       lvls <- lvls[lvls != ""]
        
        # Master List
        master_res <- list(
@@ -1195,7 +1597,7 @@ server <- function(input, output, session) {
        )
        
        for(lvl in lvls) {
-          # Subset
+          # Subset (Handle NA explicitly)
           idx <- s_vec == lvl & !is.na(s_vec)
           sub_df <- df[idx, ]
           
@@ -1355,14 +1757,20 @@ server <- function(input, output, session) {
     
     # A. SPLIT ANALYSIS
     if(!is.null(res$mode) && res$mode == "split") {
-       txt <- glue("Split Group Analysis Results (by {res$split_var}):\n\n")
+       sv <- res$split_var %||% "Group"
+       txt <- glue("Split Group Analysis Results (by {sv}):\n\n")
        for(n in names(res$results)) {
           r <- res$results[[n]]
-          if(r$test == "Error") {
-             txt <- paste0(txt, "[", n, "]: Error - ", r$note, "\n\n")
+          
+          # SAFEGUARD TEST NAME
+          t_name <- r$test %||% "Error"
+          
+          if(t_name == "Error") {
+             note <- r$note %||% "Unknown error"
+             txt <- paste0(txt, "[", n, "]: Error - ", note, "\n\n")
           } else if(!is.null(r$mode) && r$mode == "correlation") {
              # Correlation specific text
-             r_val <- r$coeff
+             r_val <- r$coeff %||% 0
              strength <- case_when(
                 abs(r_val) < 0.2 ~ "very weak",
                 abs(r_val) < 0.4 ~ "weak",
@@ -1371,13 +1779,23 @@ server <- function(input, output, session) {
                 TRUE ~ "very strong"
              )
              direction <- if(r_val > 0) "positive" else "negative"
-             p_txt <- if(r$p < 0.001) "< 0.001" else paste("=", formatC(r$p, format='f', digits=3))
              
-             txt <- paste0(txt, "In group '", n, "', there was a ", strength, " ", direction, " correlation between ", r$params$var1, " and ", r$params$var2, " (r = ", round(r_val, 2), ", P ", p_txt, ").\n\n")
+             p_val <- r$p %||% 1
+             p_txt <- if(p_val < 0.001) "< 0.001" else paste("=", formatC(p_val, format='f', digits=3))
+             
+             v1 <- r$params$var1 %||% "Var1"
+             v2 <- r$params$var2 %||% "Var2"
+             
+             txt <- paste0(txt, "In group '", n, "', there was a ", strength, " ", direction, " correlation between ", v1, " and ", v2, " (r = ", round(r_val, 2), ", P ", p_txt, ").\n\n")
           } else {
-             sig <- if(r$p < 0.05) "Significant" else "Not significant"
-             p_txt <- if(r$p < 0.001) "< 0.001" else paste("=", formatC(r$p, format='f', digits=3))
-             txt <- paste0(txt, "In group '", n, "', the analysis showed a ", if(r$p < 0.05) "statistically significant" else "non-significant", " result (", r$test, ", P ", p_txt, ").\n\n")
+             # SAFEGUARD P-VALUE
+             if(is.null(r$p)) {
+                 txt <- paste0(txt, "[", n, "]: Result available but P-value missing.\n\n")
+             } else {
+                 sig <- if(r$p < 0.05) "statistically significant" else "non-significant"
+                 p_txt <- if(r$p < 0.001) "< 0.001" else paste("=", formatC(r$p, format='f', digits=3))
+                 txt <- paste0(txt, "In group '", n, "', the analysis showed a ", sig, " result (", t_name, ", P ", p_txt, ").\n\n")
+             }
           }
        }
        return(txt)
@@ -1389,8 +1807,11 @@ server <- function(input, output, session) {
     }
     
     # C. STANDARD ANALYSIS
-    if(res$test == "Error") return(paste("Error:", res$note))
+    if(is.null(res$test) || res$test == "Error") return(paste("Error:", res$note %||% "Unknown error"))
     
+    # Safety Check for P-value
+    if(is.null(res$p)) return("Error: P-value could not be calculated.")
+
     p_val_text <- if(res$p < 0.001) "< 0.001" else paste("=", formatC(res$p, format="f", digits=3))
     sig_status <- if(res$p < 0.05) "statistically significant" else "not statistically significant"
     
@@ -1675,11 +2096,13 @@ server <- function(input, output, session) {
            
            main_df <- data.frame(Level = rownames(raw_tab))
            col_totals <- colSums(raw_tab)
-           for(g in grps) {
-              cnts <- raw_tab[, g]
-              pcts <- (cnts / col_totals[g]) * 100
-              main_df[[g]] <- paste0(cnts, " (", formatC(pcts, format="f", digits=1), "%)")
-           }
+            for(g in grps) {
+               cnts <- raw_tab[, g]
+               N <- col_totals[g]
+               pcts <- (cnts / N) * 100
+               new_col_name <- paste0(g, " (N=", N, ")")
+               main_df[[new_col_name]] <- paste0(cnts, " (", formatC(pcts, format="f", digits=1), "%)")
+            }
            main_df[["P-value"]] <- ""
            main_df[1, "P-value"] <- fmt_p_3(r$p)
            
@@ -1698,13 +2121,16 @@ server <- function(input, output, session) {
            
             for(n in nms) {
                yg <- sub_df_clean[[n]]
+               N <- length(yg)
+               new_col_name <- paste0(n, " (N=", N, ")")
+               
                if(is.numeric(yg)) {
                    m <- mean(yg); s <- sd(yg)
                    med <- median(yg); q1 <- quantile(yg, 0.25); q3 <- quantile(yg, 0.75)
                    val_str <- if(isTRUE(r$is_normal)) paste0(fmt(m), " \u00B1 ", fmt(s)) else paste0(fmt(med), " (", fmt(q1), "-", fmt(q3), ")")
-                   main_df[[n]] <- val_str
+                   main_df[[new_col_name]] <- val_str
                } else {
-                   main_df[[n]] <- paste("N=", length(yg))
+                   main_df[[new_col_name]] <- paste("N=", length(yg))
                }
             }
             
@@ -1738,19 +2164,22 @@ server <- function(input, output, session) {
               if(length(valid) > 0) grps <- valid
            }
            
-           for(g in grps) {
-              yg <- y[x == g]
-              # Normality
-              sw_p <- NA
-              if(length(yg) >= 3 && length(yg) <= 5000) sw_p <- shapiro.test(yg)$p.value
-              norm_df[[g]] <- fmt_p_3(sw_p)
-              
-              # Main Stats
-              m <- mean(yg); s <- sd(yg)
-              med <- median(yg); q1 <- quantile(yg, 0.25); q3 <- quantile(yg, 0.75)
-              val_str <- if(isTRUE(r$is_normal)) paste0(fmt(m), " \u00B1 ", fmt(s)) else paste0(fmt(med), " (", fmt(q1), "-", fmt(q3), ")")
-              main_df[[g]] <- val_str
-           }
+            for(g in grps) {
+               yg <- y[x == g]
+               N <- length(yg)
+               new_col_name <- paste0(g, " (N=", N, ")")
+               
+               # Normality
+               sw_p <- NA
+               if(length(yg) >= 3 && length(yg) <= 5000) sw_p <- shapiro.test(yg)$p.value
+               norm_df[[new_col_name]] <- fmt_p_3(sw_p)
+               
+               # Main Stats
+               m <- mean(yg); s <- sd(yg)
+               med <- median(yg); q1 <- quantile(yg, 0.25); q3 <- quantile(yg, 0.75)
+               val_str <- if(isTRUE(r$is_normal)) paste0(fmt(m), " \u00B1 ", fmt(s)) else paste0(fmt(med), " (", fmt(q1), "-", fmt(q3), ")")
+               main_df[[new_col_name]] <- val_str
+            }
            main_df[["P-value"]] <- fmt_p_3(r$p)
            
            if(length(grps) == 2 && isTRUE(r$is_normal) && !is.null(r$ttest_data)) {
@@ -2044,6 +2473,62 @@ server <- function(input, output, session) {
     sidebar_toggle("right_sidebar")
   })
 
+  # --- SMART AXIS LABEL RESET ---
+  # Automatically clear custom axis labels when the underlying variables change
+  
+  # 1. Independent Analysis (Group = X, Outcome = Y)
+  observeEvent(input$group_var, { 
+    updateTextInput(session, "custom_title", value = "")
+    updateTextInput(session, "custom_x", value = "") 
+    updateNumericInput(session, "y_min", value = NA)
+    updateNumericInput(session, "y_max", value = NA)
+    updateNumericInput(session, "y_step", value = NA)
+  })
+  observeEvent(input$outcome_var, { 
+    updateTextInput(session, "custom_title", value = "")
+    updateTextInput(session, "custom_y", value = "") 
+    updateNumericInput(session, "y_min", value = NA)
+    updateNumericInput(session, "y_max", value = NA)
+    updateNumericInput(session, "y_step", value = NA)
+  })
+  
+  # 2. Paired Analysis (Paired Vars handle both, usually)
+  observeEvent(input$paired_vars, { 
+     updateTextInput(session, "custom_title", value = "") 
+     updateTextInput(session, "custom_x", value = "") 
+     updateTextInput(session, "custom_y", value = "") 
+     updateNumericInput(session, "y_min", value = NA)
+     updateNumericInput(session, "y_max", value = NA)
+     updateNumericInput(session, "y_step", value = NA)
+  })
+  
+  # 3. Correlation Analysis (Var1 = X, Var2 = Y)
+  observeEvent(input$corr_var1, { 
+    updateTextInput(session, "custom_title", value = "")
+    updateTextInput(session, "custom_x", value = "") 
+    updateNumericInput(session, "y_min", value = NA)
+    updateNumericInput(session, "y_max", value = NA)
+    updateNumericInput(session, "y_step", value = NA)
+  })
+  observeEvent(input$corr_var2, { 
+    updateTextInput(session, "custom_title", value = "")
+    updateTextInput(session, "custom_y", value = "") 
+    updateNumericInput(session, "y_min", value = NA)
+    updateNumericInput(session, "y_max", value = NA)
+    updateNumericInput(session, "y_step", value = NA)
+  })
+  
+  # 4. Global Analysis Mode Switch
+  observeEvent(input$analysis_type, {
+     updateTextInput(session, "custom_title", value = "") 
+     updateTextInput(session, "custom_x", value = "") 
+     updateTextInput(session, "custom_y", value = "") 
+     updateNumericInput(session, "y_min", value = NA)
+     updateNumericInput(session, "y_max", value = NA)
+     updateNumericInput(session, "y_step", value = NA)
+  })
+  # ------------------------------
+
   # Reset Y-Axis Triggers
   observeEvent(list(input$reset_y_axis, input$analyze), {
      updateNumericInput(session, "y_min", value = NA)
@@ -2085,6 +2570,61 @@ server <- function(input, output, session) {
      } else {
         NULL
      }
+  })
+
+  # Reset Appearance Logic
+  observeEvent(input$reset_style, {
+      showModal(modalDialog(
+          title = "Confirm Reset",
+          "Reset all appearance settings to default?",
+          footer = tagList(
+             modalButton("Cancel"),
+             actionButton("confirm_reset_style", "Reset", class = "btn-warning")
+          )
+      ))
+  })
+  
+  observeEvent(input$confirm_reset_style, {
+      # 1. Elements
+      updateNumericInput(session, "point_size", value = 2)
+      updateNumericInput(session, "stroke_width", value = 0.5)
+      
+      # 2. Text
+      updateNumericInput(session, "font_size", value = 15)
+      updateSelectInput(session, "font_family", selected = "sans")
+      updateSelectInput(session, "font_style", selected = "plain")
+      
+      # 3. Colours
+      updateRadioButtons(session, "color_mapping", selected = "group")
+      updateCheckboxInput(session, "use_palette", value = TRUE)
+      updateSelectInput(session, "color_palette", selected = "Pastel1")
+      colourpicker::updateColourInput(session, "solid_color", value = "#5DA5DA")
+      
+      # 4. Axis & Labels
+      updateTextInput(session, "custom_title", value = "")
+      updateTextInput(session, "custom_x", value = "")
+      updateTextInput(session, "custom_y", value = "")
+      updateNumericInput(session, "y_min", value = NA)
+      updateNumericInput(session, "y_max", value = NA)
+      updateNumericInput(session, "y_step", value = NA)
+      updateCheckboxInput(session, "remove_axis_gap", value = TRUE)
+      updateCheckboxInput(session, "remove_axis_gap_y", value = FALSE)
+      
+      # 5. Other Elements
+      updateCheckboxInput(session, "show_plot_title", value = TRUE)
+      updateCheckboxInput(session, "show_footnote_viz", value = TRUE)
+      updateCheckboxInput(session, "show_jitter", value = FALSE)
+      updateCheckboxInput(session, "add_ref_line", value = FALSE)
+      updateNumericInput(session, "ref_line_val", value = 0)
+      
+      # 6. Significance
+      updateCheckboxInput(session, "show_signif", value = TRUE)
+      updateRadioButtons(session, "signif_format", selected = "p.value")
+      updateNumericInput(session, "signif_font_size", value = 5)
+      updateNumericInput(session, "signif_tip_length", value = 0.05)
+      
+      removeModal()
+      showNotification("Appearance settings reset to defaults.", type = "message")
   })
 
   # Reactive Plot Object (Extracted for re-use in Export)
@@ -2146,6 +2686,19 @@ server <- function(input, output, session) {
     ff <- input$font_family %||% "sans"
     fst <- input$font_style %||% "plain"
     
+    # Style Settings
+    ps <- input$point_size %||% 2
+    sw <- input$stroke_width %||% 0.5
+    
+    # Conditional Border Color: If stroke width is 0, make it invisible (NA)
+    bar_border <- if(sw == 0) NA else "black"
+    
+    # X-Axis Expansion Logic (Controlled by remove_axis_gap)
+    x_expansion <- if(isTRUE(input$remove_axis_gap)) expansion(mult = c(0, 0.05)) else waiver()
+    
+    # Y-Axis Expansion Logic (Controlled by remove_axis_gap_y)
+    y_expansion <- if(isTRUE(input$remove_axis_gap_y)) expansion(mult = c(0, 0.05)) else waiver()
+    
     # --- COLOR HELPER ---
     # Safe interpolation for palettes to avoid warning/error
     get_safe_scale_fill <- function(pal_name, groups) {
@@ -2178,15 +2731,20 @@ server <- function(input, output, session) {
        # Handle split mode
        if(!is.null(res$mode) && res$mode == "split") {
           # Extract test name from first valid result
-          test_name <- NULL
+          test_names <- c()
           for(r in res$results) {
              if(r$test != "Error") {
-                test_name <- r$test
-                break
+                test_names <- c(test_names, r$test)
              }
           }
-          if(!is.null(test_name)) {
-             txt <- paste("Test:", test_name)
+          unique_tests <- unique(test_names)
+          
+          if(length(unique_tests) > 0) {
+             if(length(unique_tests) == 1) {
+                txt <- paste("Test:", unique_tests[1])
+             } else {
+                txt <- paste("Tests:", paste(unique_tests, collapse = "; "))
+             }
           } else {
              txt <- NULL
           }
@@ -2214,13 +2772,15 @@ server <- function(input, output, session) {
        df_plot <- na.omit(df_plot)
        
        # Determine point and line colors based on color settings
-       point_color <- if(input$color_mapping == "single") in_solid else "#4E84C4"
-       line_color <- if(input$color_mapping == "single") in_solid else "#D16103"
+       # SAFEGUARD: color_mapping might be NULL
+       cm <- input$color_mapping %||% "group"
+       point_color <- if(cm == "single") in_solid else "#4E84C4"
+       line_color <- if(cm == "single") in_solid else "#D16103"
        line_fill <- line_color
        
        p <- ggplot(df_plot, aes(x = .data[[res$params$var1]], y = .data[[res$params$var2]])) +
-          geom_point(alpha=0.6, color=point_color, size=2) +
-          geom_smooth(method=if(res$test=="Pearson Correlation") "lm" else "loess", se=TRUE, color=line_color, fill=line_fill, alpha=0.2, linewidth=0.8) +
+          geom_point(alpha=0.6, color=point_color, size=ps) +
+          geom_smooth(method=if(res$test=="Pearson Correlation") "lm" else "loess", se=TRUE, color=line_color, fill=line_fill, alpha=0.2, linewidth=sw) +
           my_theme
        
        # Apply axis labels
@@ -2228,15 +2788,17 @@ server <- function(input, output, session) {
        final_y <- if(nchar(in_y) > 0) in_y else res$params$var2
        
        # Apply reference line if enabled
+       # SAFEGUARD: ref_line_val can be NULL
        if(isTRUE(input$add_ref_line) && !is.null(input$ref_line_val) && !is.na(input$ref_line_val)) {
-          p <- p + geom_hline(yintercept = input$ref_line_val, linetype = "dashed", color = "black", linewidth = 0.5)
+          p <- p + geom_hline(yintercept = input$ref_line_val, linetype = "dashed", color = "black", linewidth = sw)
        }
        
        # Apply title
        final_title <- if(nchar(in_title) > 0) in_title else paste("Correlation:", res$params$var1, "vs", res$params$var2)
        if(!isTRUE(input$show_plot_title)) final_title <- NULL
        
-       p <- p + labs(title = final_title, x = final_x, y = final_y, caption = caption_txt)
+       p <- p + labs(title = final_title, x = final_x, y = final_y, caption = caption_txt) +
+          scale_x_continuous(expand = x_expansion)
        return(p)
     }
 
@@ -2330,17 +2892,7 @@ server <- function(input, output, session) {
              df_plot[[p_split]] <- as.factor(df_plot[[p_split]])
           }
           
-          # Filter by Group Order if set (Apply to Split Analysis)
-          if(!is.null(p_group) && !is.null(input$viz_group_order) && length(input$viz_group_order) > 0) {
-              # Standardize factor levels to match
-              df_plot[[p_group]] <- factor(df_plot[[p_group]])
-              
-              valid_grps <- intersect(input$viz_group_order, levels(df_plot[[p_group]]))
-              if(length(valid_grps) > 0) {
-                   df_plot <- df_plot[df_plot[[p_group]] %in% valid_grps, ]
-                   df_plot[[p_group]] <- factor(df_plot[[p_group]], levels = valid_grps)
-              }
-          }
+          # Remove old viz_group_order filter - robust global order is used instead
           
           # CHECK GLOBAL NORMALITY FOR SPLIT
           # If ANY group in any split is non-normal -> Use Non-Parametric (Boxplot)
@@ -2377,15 +2929,6 @@ server <- function(input, output, session) {
              vals <- df_plot[[p_split]]
              t_counts <- table(vals)
              valid_grps <- names(t_counts[t_counts >= 3])
-             
-             
-             # Apply user-defined group order filter to split levels if applicable (User Request)
-             if (!is.null(input$viz_group_order) && length(input$viz_group_order) > 0) {
-                 user_selection <- intersect(input$viz_group_order, valid_grps)
-                 if (length(user_selection) > 0) {
-                     valid_grps <- user_selection
-                 }
-             }
 
              if(length(valid_grps) == 0) return(NULL)
              
@@ -2399,14 +2942,16 @@ server <- function(input, output, session) {
              }
              
              # Determine point and line colors based on color settings
-             point_color <- if(input$color_mapping == "single") in_solid else "#4E84C4"
-             line_color <- if(input$color_mapping == "single") in_solid else "#D16103"
+             # SAFEGUARD: color_mapping
+             cm <- input$color_mapping %||% "group"
+             point_color <- if(cm == "single") in_solid else "#4E84C4"
+             line_color <- if(cm == "single") in_solid else "#D16103"
              line_fill <- line_color
              
              p <- ggplot(df_plot, aes(x = .data[[p_var1]], y = .data[[p_var2]])) +
-                geom_point(alpha=0.6, color=point_color, size=2) +
-                geom_smooth(method="lm", formula= y~x, se=TRUE, color=line_color, fill=line_fill, alpha=0.2, linewidth=0.8) +
-                facet_wrap(as.formula(paste("~", p_split))) +
+                geom_point(alpha=0.6, color=point_color, size=ps) +
+                geom_smooth(method="lm", formula= y~x, se=TRUE, color=line_color, fill=line_fill, alpha=0.2, linewidth=sw) +
+                facet_wrap(as.formula(paste0("~ `", p_split, "`"))) +
                 my_theme
              
              # Apply axis labels
@@ -2414,27 +2959,34 @@ server <- function(input, output, session) {
              final_y <- if(nchar(in_y) > 0) in_y else p_var2
              
              # Apply reference line if enabled
-             if(isTRUE(input$add_ref_line) && !is.na(input$ref_line_val)) {
-                p <- p + geom_hline(yintercept = input$ref_line_val, linetype = "dashed", color = "black", linewidth = 0.5)
+             if(isTRUE(input$add_ref_line) && !is.null(input$ref_line_val) && !is.na(input$ref_line_val)) {
+                p <- p + geom_hline(yintercept = input$ref_line_val, linetype = "dashed", color = "black", linewidth = sw)
              }
              
              # Apply title
              final_title <- if(nchar(in_title) > 0) in_title else paste("Split Correlation:", p_var1, "vs", p_var2, "by", p_split)
              if(!isTRUE(input$show_plot_title)) final_title <- NULL
              
-             p <- p + labs(title = final_title, x = final_x, y = final_y, caption = caption_txt)
+             p <- p + labs(title = final_title, x = final_x, y = final_y, caption = caption_txt) +
+                 scale_x_continuous(expand = x_expansion)
              return(p)
              
           } else if(grepl("categorical", first_res$mode)) {
              # Categorical Outcome: Stacked Bar Faceted
-             p <- ggplot(df_plot, aes(x = .data[[p_split]], fill = .data[[p_outcome]])) +
-                geom_bar(position = "fill") +
-                facet_grid(as.formula(paste("~", p_group))) +
-                scale_y_continuous(labels = scales::percent) +
+             p <- ggplot(df_plot, aes(x = .data[[p_group]], fill = .data[[p_outcome]])) +
+                geom_bar(position = "fill", color=bar_border, size=sw) +
+                facet_wrap(as.formula(paste0("~ `", p_split, "`"))) +
+                scale_y_continuous(labels = scales::percent, expand = y_expansion) +
                 my_theme + get_safe_scale_fill(in_palette, levels(as.factor(df_plot[[p_outcome]])))
              
              final_title <- if(nchar(in_title) > 0) in_title else paste("Split Analysis:", p_outcome, "by", p_group, "and", p_split)
-             p <- p + labs(title = final_title, caption = caption_txt)
+             if(!isTRUE(input$show_plot_title)) final_title <- NULL
+             
+             final_x <- if(nchar(in_x) > 0) in_x else p_group
+             final_y <- if(nchar(in_y) > 0) in_y else "Proportion"
+             
+             p <- p + labs(title = final_title, caption = caption_txt, x = final_x, y = final_y) +
+                 scale_x_discrete(expand = x_expansion)
                 
           } else {
              # Numeric Outcome
@@ -2445,7 +2997,8 @@ server <- function(input, output, session) {
               g_split_lvls <- levels(as.factor(df_plot[[p_group]]))
               split_fill_scale <- get_safe_scale_fill(in_palette, g_split_lvls)
              
-             if(input$color_mapping == 'single') {
+              cm <- input$color_mapping %||% "group"
+             if(cm == 'single') {
                  # Single Color Mode
                  # Since aes(fill=group), we map all groups to the same solid color
                  g_lvls <- levels(as.factor(df_plot[[p_group]]))
@@ -2479,11 +3032,11 @@ server <- function(input, output, session) {
                 
                 # Base Aes
                 p <- ggplot(summ_df, aes(x = .data[[p_split]], y = Mean, fill = .data[[p_group]])) +
-                   geom_bar(stat = "identity", position = position_dodge(width = 0.9), color="black") +
+                   geom_bar(stat = "identity", position = position_dodge(width = 0.9), color=bar_border, size=sw) +
                    geom_errorbar(aes(
                       ymin = case_when(Mean >= 0 ~ Mean, TRUE ~ Mean - SD),
                       ymax = case_when(Mean >= 0 ~ Mean + SD, TRUE ~ Mean)
-                   ), position = position_dodge(width = 0.9), width = 0.25) +
+                   ), position = position_dodge(width = 0.9), width = 0.25, linewidth=sw) +
                    my_theme + 
                    split_fill_scale
                 
@@ -2492,12 +3045,13 @@ server <- function(input, output, session) {
                 # NON-PARAMETRIC: Boxplot (Median + IQR)
                 # --------------------------------
                 p <- ggplot(df_plot, aes(x = .data[[p_split]], y = .data[[p_outcome]], fill = .data[[p_group]])) +
-                   geom_boxplot(outlier.shape = NA) +
+                   geom_boxplot(outlier.shape = NA, color=bar_border, linewidth=sw) +
                    my_theme +
                    split_fill_scale
                 
                 if(isTRUE(input$show_jitter)) {
-                   p <- p + geom_point(position = position_jitterdodge(), alpha=0.3, size=1)
+                   p <- p + geom_point(position = position_jitterdodge(), alpha=0.3, size=ps*0.5) 
+                   # Note: Split jitter is usually smaller, so scaling relative to ps
                 }
              }
              
@@ -2517,12 +3071,13 @@ server <- function(input, output, session) {
              
              # 1. Zero Line
              if(data_min < 0 && data_max > 0) {
-               p <- p + geom_hline(yintercept=0, linetype="dashed", color="gray50")
+               p <- p + geom_hline(yintercept=0, linetype="dashed", color="gray50", linewidth=sw)
              }
              
-             if(isTRUE(input$add_ref_line) && !is.na(input$ref_line_val)) {
-                p <- p + geom_hline(yintercept = input$ref_line_val, linetype = "dashed", color = "black", linewidth = 0.5)
+             if(isTRUE(input$add_ref_line) && !is.null(input$ref_line_val) && !is.na(input$ref_line_val)) {
+                p <- p + geom_hline(yintercept = input$ref_line_val, linetype = "dashed", color = "black", linewidth = sw)
              }
+
              
              # 2. Limits & Breaks
              lim_min <- if(!is.null(input$y_min) && !is.na(input$y_min)) input$y_min else if(data_min >= 0) 0 else NA
@@ -2535,8 +3090,7 @@ server <- function(input, output, session) {
                 my_breaks <- seq(from = b_start, to = b_end, by = input$y_step)
              }
              
-             expansion_opt <- if(isTRUE(input$remove_axis_gap)) expansion(mult = c(0, 0.05)) else waiver()
-             p <- p + scale_y_continuous(limits = c(lim_min, lim_max), breaks = my_breaks, expand = expansion_opt)
+             p <- p + scale_y_continuous(limits = c(lim_min, lim_max), breaks = my_breaks, expand = y_expansion)
 
              # 3. Labels & Title
              base_title <- if(is_global_parametric) paste("Split Analysis :", p_outcome, "by", p_group) else paste("Split Analysis:", p_outcome, "by", p_group)
@@ -2548,10 +3102,19 @@ server <- function(input, output, session) {
              final_y <- if(nchar(in_y) > 0) in_y else p_outcome
              
              p <- p + labs(title = final_title, x = final_x, y = final_y, caption = caption_txt)
+             
+             # Apply X Expansion: Check if X is Discrete or Continuous (Boxplot/Bar vs others)
+             # Logic: If using geom_bar/boxplot, X is likely discrete (p_split or p_group)
+             # However, p_split might be converted to factor locally
+             if(is.factor(df_plot[[p_split]]) || is.character(df_plot[[p_split]])) {
+                p <- p + scale_x_discrete(expand = x_expansion)
+             } else {
+                p <- p + scale_x_continuous(expand = x_expansion)
+             }
           }
           
           # --- ADD SIGNIFICANCE LINES (Split Group) ---
-          if(isTRUE(input$show_signif)) {
+          if(isTRUE(input$show_signif) && is.numeric(df_plot[[p_outcome]])) {
              # Helper to convert p-value from string
              p_to_num <- function(x) {
                 if(is.numeric(x)) return(x)
@@ -2632,7 +3195,8 @@ server <- function(input, output, session) {
                             
                             # Label Logic
                             pval_num <- p_to_num(pw_sig[row_i, "Adjusted P-value"])
-                            lab <- if(input$signif_format == "stars") {
+                            sf <- input$signif_format %||% "p.value"
+                            lab <- if(sf == "stars") {
                                case_when(pval_num < 0.001 ~ "***", pval_num < 0.01 ~ "**", pval_num < 0.05 ~ "*", TRUE ~ "ns")
                             } else {
                                raw_val <- pw_sig[row_i, "Adjusted P-value"]
@@ -2710,7 +3274,10 @@ server <- function(input, output, session) {
       
       # Color Mapping Logic
       lvl_count <- length(levels(x))
-      is_single_color <- (input$color_mapping == "single")
+      
+      # SAFEGUARD
+      cm <- input$color_mapping %||% "group"
+      is_single_color <- (cm == "single")
       
       fill_scale <- NULL
       base_aes <- aes(x = .data[[p_group]], y = .data[[p_outcome]])
@@ -2742,8 +3309,8 @@ server <- function(input, output, session) {
         # ----------------------------------
         
         p <- ggplot(df_plot, aes(x = .data[[p_group]], fill = .data[[p_outcome]])) +
-          geom_bar(position = "fill") +
-          scale_y_continuous(labels = scales::percent) +
+          geom_bar(position = "fill", color=bar_border, size=sw) +
+          scale_y_continuous(labels = scales::percent, expand = y_expansion) +
           my_theme +
           get_safe_scale_fill(in_palette, levels(as.factor(df_plot[[p_outcome]]))) # Keep palette for outcome levels
          
@@ -2753,7 +3320,8 @@ server <- function(input, output, session) {
         final_x <- if(nchar(in_x) > 0) in_x else p_group
         final_y <- if(nchar(in_y) > 0) in_y else "Proportion"
         
-        p <- p + labs(title = final_title, caption = caption_txt, x = final_x, y = final_y, fill = p_outcome)
+        p <- p + labs(title = final_title, caption = caption_txt, x = final_x, y = final_y, fill = p_outcome) +
+           scale_x_discrete(expand = x_expansion)
         
       } else {
         # ----------------------------------
@@ -2783,16 +3351,16 @@ server <- function(input, output, session) {
            
            # Geom Bar
            if(is_single_color) {
-              p <- ggplot(summ_df, p_aes) + geom_bar(stat = "identity", color="black", width=0.7, fill=in_solid)
+              p <- ggplot(summ_df, p_aes) + geom_bar(stat = "identity", color=bar_border, width=0.7, fill=in_solid, linewidth=sw)
            } else {
-              p <- ggplot(summ_df, p_aes) + geom_bar(stat = "identity", color="black", width=0.7) + fill_scale
+              p <- ggplot(summ_df, p_aes) + geom_bar(stat = "identity", color=bar_border, width=0.7, linewidth=sw) + fill_scale
            }
            
            # Error Bars
            p <- p + geom_errorbar(aes(
                  ymin = case_when(Mean >= 0 ~ Mean, TRUE ~ Mean - SD),
                  ymax = case_when(Mean >= 0 ~ Mean + SD, TRUE ~ Mean)
-              ), width = 0.2) + my_theme
+              ), width = 0.2, linewidth=sw) + my_theme
               
         } else {
            # NON-PARAMETRIC: Boxplot
@@ -2801,16 +3369,16 @@ server <- function(input, output, session) {
            if(!is_single_color) p_aes <- aes(x = .data[[p_group]], y = .data[[p_outcome]], fill = .data[[p_group]])
 
            if(is_single_color) {
-              p <- ggplot(df_plot, p_aes) + geom_boxplot(outlier.shape = NA, fill=in_solid)
+              p <- ggplot(df_plot, p_aes) + geom_boxplot(outlier.shape = NA, fill=in_solid, color=bar_border, linewidth=sw)
            } else {
-              p <- ggplot(df_plot, p_aes) + geom_boxplot(outlier.shape = NA) + fill_scale
+              p <- ggplot(df_plot, p_aes) + geom_boxplot(outlier.shape = NA, color=bar_border, linewidth=sw) + fill_scale
            }
            
            p <- p + my_theme
         }
 
         if(isTRUE(input$show_jitter)) {
-           p <- p + geom_jitter(width = 0.2, alpha = 0.3, size=1.5)
+           p <- p + geom_jitter(width = 0.2, alpha = 0.3, size=ps)
         }
         
         # ---------------------------
@@ -2821,22 +3389,22 @@ server <- function(input, output, session) {
         
         # 1. Zero Reference Line
         if(data_min < 0 && data_max > 0) {
-           p <- p + geom_hline(yintercept=0, linetype="dashed", color="gray50")
+           p <- p + geom_hline(yintercept=0, linetype="dashed", color="gray50", linewidth=sw)
         }
         
-        if(isTRUE(input$add_ref_line) && !is.na(input$ref_line_val)) {
-           p <- p + geom_hline(yintercept = input$ref_line_val, linetype = "dashed", color = "black", linewidth = 0.5)
+        if(isTRUE(input$add_ref_line) && !is.null(input$ref_line_val) && !is.na(input$ref_line_val)) {
+           p <- p + geom_hline(yintercept = input$ref_line_val, linetype = "dashed", color = "black", linewidth = sw)
         }
         
         # 2. Limits & Breaks
         # Default Auto-Zero for positive data
         lim_min <- if(data_min >= 0) 0 else NA   
-        if(!is.na(input$y_min)) lim_min <- input$y_min
+        if(!is.null(input$y_min) && !is.na(input$y_min)) lim_min <- input$y_min
         
-        lim_max <- if(!is.na(input$y_max)) input$y_max else NA
+        lim_max <- if(!is.null(input$y_max) && !is.na(input$y_max)) input$y_max else NA
         
         my_breaks <- waiver()
-        if(!is.na(input$y_step)) {
+        if(!is.null(input$y_step) && !is.na(input$y_step)) {
            # Robust sequence generation requires definite start/end
            # If NA, we approximate from data
            b_start <- if(!is.na(lim_min)) lim_min else floor(data_min)
@@ -2846,9 +3414,7 @@ server <- function(input, output, session) {
         
         
         # REMOVE FLOOR GAP if requested
-        expansion_opt <- if(isTRUE(input$remove_axis_gap)) expansion(mult = c(0, 0.05)) else waiver()
-        
-        p <- p + scale_y_continuous(limits = c(lim_min, lim_max), breaks = my_breaks, expand = expansion_opt)
+        p <- p + scale_y_continuous(limits = c(lim_min, lim_max), breaks = my_breaks, expand = y_expansion)
           
         # Labels
         final_title <- if(nchar(in_title) > 0) in_title else paste("Comparison of", p_outcome, "by", p_group)
@@ -2857,7 +3423,8 @@ server <- function(input, output, session) {
         final_y <- if(nchar(in_y) > 0) in_y else p_outcome
         
         p <- p + labs(title = final_title, caption = caption_txt, x = final_x, y = final_y) +
-           theme(legend.position = "none") 
+           theme(legend.position = "none") +
+           scale_x_discrete(expand = x_expansion) 
            
         # Significance Lines (ggsignif)
         target_pw <- res$plot_signif_data
@@ -2888,7 +3455,8 @@ server <- function(input, output, session) {
                   if(g1 %in% levels(x) && g2 %in% levels(x)) {
                      comps[[length(comps)+1]] <- c(g1, g2)
                      pval_num <- p_to_num(pw_sig[r, "Adjusted P-value"])
-                     if(input$signif_format == "stars") {
+                     sf <- input$signif_format %||% "p.value"
+                     if(sf == "stars") {
                         lab <- case_when(pval_num < 0.001 ~ "***", pval_num < 0.01 ~ "**", pval_num < 0.05 ~ "*", TRUE ~ "ns")
                      } else {
                         # Use capital P as requested
@@ -2940,7 +3508,8 @@ server <- function(input, output, session) {
                     y_position = y_pos_sorted, # Explicit sorted positions
                     textsize = input$signif_font_size %||% 5,
                     tip_length = input$signif_tip_length %||% 0.05,
-                    map_signif_level = FALSE
+                    map_signif_level = FALSE,
+                    linewidth = sw
                  )
               }
            }
@@ -2950,10 +3519,13 @@ server <- function(input, output, session) {
     } else {
       # -------------------------------------------------------------
       # 4. PAIRED ANALYSIS (Standardized)
-      # -------------------------------------------------------------
       # SNAPSHOT
       p_paired <- res$params$paired_vars
       
+      # Point Size and Stroke Width
+      ps <- input$point_size %||% 1.5
+      sw <- input$stroke_width %||% 0.5
+
       # Reshape Wide to Long for Plotting
       sub_df <- df[, p_paired]
       sub_df <- na.omit(sub_df)
@@ -2984,8 +3556,8 @@ server <- function(input, output, session) {
       if(res$mode == "paired_categorical") {
          # Paired Categorical (Stacked Bar)
          p <- ggplot(long_df, aes(x = Group, fill = as.factor(Value))) +
-           geom_bar(position = "fill") +
-           scale_y_continuous(labels = scales::percent) +
+           geom_bar(position = "fill", color=bar_border, size=sw) +
+           scale_y_continuous(labels = scales::percent, expand = y_expansion) +
            my_theme +
            get_safe_scale_fill(in_palette, levels(as.factor(long_df$Value)))
            
@@ -2994,14 +3566,17 @@ server <- function(input, output, session) {
          final_x <- if(nchar(in_x) > 0) in_x else "Group"
          final_y <- if(nchar(in_y) > 0) in_y else "Proportion"
 
-         p <- p + labs(title = final_title, subtitle = paste(res$test, "\n(Marginal Homogeneity Check)"), x = final_x, y = final_y, fill = "Outcome")
+         p <- p + labs(title = final_title, subtitle = paste(res$test, "\n(Marginal Homogeneity Check)"), x = final_x, y = final_y, fill = "Outcome") +
+             scale_x_discrete(expand = x_expansion)
            
       } else {
          # Paired Numeric (Bar or Boxplot)
          # Using logic similar to Independent Analysis
          
          is_parametric <- isTRUE(res$is_normal)
-         is_single_color <- (input$color_mapping == "single")
+         # SAFEGUARD
+         cm <- input$color_mapping %||% "group"
+         is_single_color <- (cm == "single")
          
          # Define Color Scale
          g_lvls <- levels(long_df$Group)
@@ -3042,28 +3617,28 @@ server <- function(input, output, session) {
              if(!is_single_color) p_aes_summ <- aes(x = Group, y = Mean, fill = Group)
              
              if(is_single_color) {
-                p <- ggplot(summ_df, p_aes_summ) + geom_bar(stat = "identity", color="black", width=0.7, fill=in_solid)
+                p <- ggplot(summ_df, p_aes_summ) + geom_bar(stat = "identity", color=bar_border, width=0.7, fill=in_solid, linewidth=sw)
              } else {
-                p <- ggplot(summ_df, p_aes_summ) + geom_bar(stat = "identity", color="black", width=0.7) + fill_scale
+                p <- ggplot(summ_df, p_aes_summ) + geom_bar(stat = "identity", color=bar_border, width=0.7, linewidth=sw) + fill_scale
              }
              
              p <- p + geom_errorbar(aes(
                    ymin = case_when(Mean >= 0 ~ Mean, TRUE ~ Mean - SD),
                    ymax = case_when(Mean >= 0 ~ Mean + SD, TRUE ~ Mean)
-                ), width = 0.2) + my_theme
+                ), width = 0.2, linewidth=sw) + my_theme
              
          } else {
              # NON-PARAMETRIC: Boxplot
              if(is_single_color) {
-                p <- ggplot(long_df, p_aes) + geom_boxplot(outlier.shape = NA, fill=in_solid)
+                p <- ggplot(long_df, p_aes) + geom_boxplot(outlier.shape = NA, fill=in_solid, color=bar_border, linewidth=sw)
              } else {
-                p <- ggplot(long_df, p_aes) + geom_boxplot(outlier.shape = NA) + fill_scale
+                p <- ggplot(long_df, p_aes) + geom_boxplot(outlier.shape = NA, color=bar_border, linewidth=sw) + fill_scale
              }
              p <- p + my_theme
          }
          
          if(isTRUE(input$show_jitter)) {
-            p <- p + geom_jitter(width = 0.2, alpha = 0.3, size=1.5)
+            p <- p + geom_jitter(width = 0.2, alpha = 0.3, size=ps)
          }
 
          # ---------------------------
@@ -3073,27 +3648,26 @@ server <- function(input, output, session) {
          data_max <- max(long_df$Value, na.rm=TRUE)
          
          if(data_min < 0 && data_max > 0) {
-            p <- p + geom_hline(yintercept=0, linetype="dashed", color="gray50")
+            p <- p + geom_hline(yintercept=0, linetype="dashed", color="gray50", linewidth=sw)
          }
          
-         if(isTRUE(input$add_ref_line) && !is.na(input$ref_line_val)) {
-            p <- p + geom_hline(yintercept = input$ref_line_val, linetype = "dashed", color = "black", linewidth = 0.5)
+         if(isTRUE(input$add_ref_line) && !is.null(input$ref_line_val) && !is.na(input$ref_line_val)) {
+            p <- p + geom_hline(yintercept = input$ref_line_val, linetype = "dashed", color = "black", linewidth = sw)
          }
          
          # Limits
          lim_min <- if(data_min >= 0) 0 else NA   
-         if(!is.na(input$y_min)) lim_min <- input$y_min
-         lim_max <- if(!is.na(input$y_max)) input$y_max else NA
+         if(!is.null(input$y_min) && !is.na(input$y_min)) lim_min <- input$y_min
+         lim_max <- if(!is.null(input$y_max) && !is.na(input$y_max)) input$y_max else NA
          
          my_breaks <- waiver()
-         if(!is.na(input$y_step)) {
+         if(!is.null(input$y_step) && !is.na(input$y_step)) {
             b_start <- if(!is.na(lim_min)) lim_min else floor(data_min)
             b_end   <- if(!is.na(lim_max)) lim_max else ceiling(data_max * 1.5)
             my_breaks <- seq(from = b_start, to = b_end, by = input$y_step)
          }
          
-         expansion_opt <- if(isTRUE(input$remove_axis_gap)) expansion(mult = c(0, 0.05)) else waiver()
-         p <- p + scale_y_continuous(limits = c(lim_min, lim_max), breaks = my_breaks, expand = expansion_opt)
+         p <- p + scale_y_continuous(limits = c(lim_min, lim_max), breaks = my_breaks, expand = y_expansion)
          
          # Labels
          final_title <- if(nchar(in_title) > 0) in_title else "Paired Comparison"
@@ -3102,7 +3676,8 @@ server <- function(input, output, session) {
          if(!isTRUE(input$show_plot_title)) final_title <- NULL
            
          p <- p + labs(title = final_title, x = final_x, y = final_y, caption = caption_txt) +
-            theme(legend.position = "none") 
+            theme(legend.position = "none") +
+            scale_x_discrete(expand = x_expansion) 
             
          # ---------------------------
          # SIGNIFICANCE LINES (Rainbow Stacked)
@@ -3140,7 +3715,8 @@ server <- function(input, output, session) {
                       comps[[length(comps)+1]] <- c(g1, g2)
                       
                       pval_num <- p_to_num(pw_sig[r, "Adjusted P-value"])
-                      if(input$signif_format == "stars") {
+                      sf <- input$signif_format %||% "p.value"
+                      if(sf == "stars") {
                          lab <- case_when(pval_num < 0.001 ~ "***", pval_num < 0.01 ~ "**", pval_num < 0.05 ~ "*", TRUE ~ "ns")
                       } else {
                          raw_val <- pw_sig[r, "Adjusted P-value"]
@@ -3183,7 +3759,8 @@ server <- function(input, output, session) {
                      y_position = y_pos_sorted, 
                      textsize = input$signif_font_size %||% 5,
                      tip_length = input$signif_tip_length %||% 0.05,
-                     map_signif_level = FALSE
+                     map_signif_level = FALSE,
+                     linewidth = sw
                   )
                }
             }

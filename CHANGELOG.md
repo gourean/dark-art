@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## \[1.2.0] - 2026-02-13
+
+### Added
+
+* **Data Editing**: A fully functional Data Editor allows you to directly modify your dataset within the app (edit cells, adding/deleting rows/cols).
+* **Filter Data**: New sidebar controls allow you to filter the dataset by a specific variable and value(s) before running the analysis.
+* **Enhanced Plot Controls**: Added stroke width, point size control, and an option to remove the gap from the Y-axis.
+* **Reset Appearance**: A new button to reset all graph settings to defaults.
+* **Smart Reset**: Automatically clears custom axis labels, plot titles, and axis limits when the underlying variables are changed.
+* **Result Tables**: Sample Size (N) is now displayed in group headers.
+
+### Changed
+
+* **Group Ordering**: Reworked the Group Order setting for robust handling.
+* **Graph Defaults**: 'Remove Gap from X-Axis' is now enabled by default.
+* **Mobile Experience**: Optimized layout for mobile devices.
+
+### Fixed
+
+* **Split Analysis Stability**: Fixed crash in Split Analysis logic for categorical outcomes ("max not meaningful for factors").
+* **Robustness**: Improved error handling for empty groups ("argument is of length zero").
+* **CSV Handling**: Fixed issue where special characters (e.g., spaces, brackets) in column names were replaced by dots on import.
+
 ## \[1.1.0] - 2026-02-02
 
 ### Added
@@ -26,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * **Stability**: Resolved "max not meaningful for factors" error that occurred during specific categorical analyses.
 
-## \[1.0.0] - 2026-01-30
+## \[1.0.0] - 2026-01-31
 
 ### Added
 
@@ -52,4 +75,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * Auto-significance brackets.
 
 * **Reporting**: Natural language interpretation of statistical results.
-
