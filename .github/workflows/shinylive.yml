@@ -32,9 +32,8 @@ jobs:
       # --- NEW STEP: Install your app's specific packages ---
       - name: Install App Dependencies
         run: |
-          install.packages("remotes")
-          remotes::install_deps(dependencies = TRUE)
-          install.packages("rlang") # Ensure we have the latest version
+          install.packages("pak")
+          pak::pkg_install(c("rlang@1.1.7", "ggplot2", "shiny", "bslib", "dplyr", "glue", "dunn.test", "scales", "svglite", "ggsignif", "colourpicker", "tidyr", "munsell", "DT", "RColorBrewer", "httpuv"))
         shell: Rscript {0}
       # ----------------------------------------------------
 
