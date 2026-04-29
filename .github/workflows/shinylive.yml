@@ -32,13 +32,14 @@ jobs:
       # --- NEW STEP: Install your app's specific packages ---
       - name: Install App Dependencies
         run: |
-          install.packages(c("colourpicker", "dplyr", "dunn.test", "ggplot2", "ggsignif", "RColorBrewer", "scales", "tidyr"))
+          install.packages(c("shiny", "bslib", "ggplot2", "dplyr", "glue", "dunn.test", "scales", "svglite", "ggsignif", "colourpicker", "tidyr", "munsell", "DT", "RColorBrewer", "httpuv"))
         shell: Rscript {0}
       # ----------------------------------------------------
 
       - name: Install Shinylive
         run: |
           install.packages("shinylive")
+          if (!requireNamespace("shinylive", quietly = TRUE)) stop("shinylive installation failed!")
         shell: Rscript {0}
 
       - name: Build Applications
