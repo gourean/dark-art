@@ -36,16 +36,18 @@ jobs:
 
       - name: Install Dependencies and Build App
         run: |
-          # 1. Install all required packages from the Feb 24, 2026 snapshot
-          repo <- "https://packagemanager.posit.co/cran/2026-02-24"
+          # 1. Setup Binary Repositories (Ubuntu Jammy / 2026-02-24)
+          options(repos = c(CRAN = "https://p3m.dev/cran/__linux__/jammy/2026-02-24"))
+          
+          # 2. Install everything with full dependency resolution
           install.packages(c(
             "shiny", "bslib", "ggplot2", "dplyr", "glue",
             "dunn.test", "scales", "svglite", "ggsignif",
             "colourpicker", "tidyr", "munsell", "DT",
             "shinylive", "httpuv", "rlang"
-          ), repos = repo)
+          ), dependencies = TRUE)
           
-          # 2. Build the App
+          # 3. Build the App
           library(shinylive)
           assets_download()
           unlink("_site", recursive = TRUE)
