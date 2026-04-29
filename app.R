@@ -159,7 +159,7 @@ ui <- page_sidebar(
     hr(), # Horizontal line
 
     # Note
-    helpText("Built by Wong GR. v1.2.0 available on ", a(href="https://github.com/gourean/dark-art", "Github", target="_blank"))
+    helpText("Built by Wong GR. v1.3.0 available on ", a(href="https://github.com/gourean/dark-art", "Github", target="_blank"))
   ),
   
   # C. The Main Display (Outputs) -> Nested Sidebar Layout
@@ -182,6 +182,7 @@ ui <- page_sidebar(
         checkboxInput("show_plot_title", "Show Plot Title", value = TRUE),
         checkboxInput("show_footnote_viz", "Show Test Name (Footnote)", value = TRUE),
         checkboxInput("show_jitter", "Show Data Points (Jitter)", value = FALSE),
+        checkboxInput("show_boxplot_caps", "Show Boxplot Caps", value = FALSE),
         checkboxInput("remove_axis_gap", "Remove Gap from X-Axis", value = FALSE),
         checkboxInput("remove_axis_gap_y", "Remove Gap from Y-Axis", value = TRUE),
         
@@ -254,6 +255,10 @@ ui <- page_sidebar(
              "Advanced",
              actionButton("sidebar_reorder_btn", "Reorder Groups", icon = icon("sort"), width = "100%", class = "btn-secondary"), # Unified reorder logic
              helpText("Note: This changes the underlying data factor levels."),
+             
+             hr(),
+             h6("Plot Override"),
+             selectInput("force_plot_type", "Plot Type Override", choices = c("Auto (Based on Normality)" = "auto", "Bar Chart (Mean ± SD)" = "bar", "Boxplot (Median + IQR)" = "box")),
              
              hr(),
              h6("Significance Analysis"),
@@ -889,6 +894,7 @@ server <- function(input, output, session) {
        }
        
        # Apply Filter
+       keep_rows[is.na(keep_rows)] <- FALSE
        df_raw <- df_raw[keep_rows, , drop = FALSE]
        
        if(nrow(df_raw) == 0) {
@@ -903,6 +909,8 @@ server <- function(input, output, session) {
           df_raw <- droplevels(df_raw)
        }
     }
+    
+    vals$filtered_data <- df_raw
     
     # helper to safely retrieve inputs
     a_type <- input$analysis_type
@@ -989,7 +997,13 @@ server <- function(input, output, session) {
              
              res$is_normal <- NA
              
-             if(percent_small > 20) {
+             if(nrow(tbl) < 2) {
+                # Constant Outcome Case
+                res$p <- 1.000
+                res$test <- "Pearson Chi-Square Test"
+                res$stat <- "N/A (Constant)"
+                res$note <- "Outcome variable is constant across all groups. No difference in proportion exists."
+             } else if(percent_small > 20) {
                 tryCatch({
                    test <- fisher.test(tbl, workspace = 2e8, alternative = "two.sided")
                    res$test <- "Fisher's Exact Test"
@@ -1031,7 +1045,8 @@ server <- function(input, output, session) {
                 
                 # Shapiro-Wilk needs 3-5000 observations
                 if(length(sub_data) >= 3 && length(sub_data) <= 5000) {
-                   if(shapiro.test(sub_data)$p.value < 0.05) {
+                   sw_p <- tryCatch(shapiro.test(sub_data)$p.value, error = function(e) 0)
+                   if(sw_p < 0.05) {
                       is_normal <- FALSE
                       break # One non-normal group is enough to switch to non-parametric (conservative)
                    }
@@ -1069,7 +1084,7 @@ server <- function(input, output, session) {
              
              if(length(groups) == 2) {
                 res$mode <- "2group"
-                if(is.na(sd(y)) || sd(y) == 0) { res$test <- "Error"; res$note <- "Variable has zero variance."; res$p <- 1; return(res) }
+                # Removed early return on zero variance to force run analysis
                 
                 if(is_normal) {
                    test <- t.test(y ~ x, var.equal = equal_var, alternative = "two.sided")
@@ -1079,7 +1094,7 @@ server <- function(input, output, session) {
                    res$note <- "Data is normally distributed. A parametric test was used."
                    res$ttest_data <- list(diff = test$estimate[1] - test$estimate[2], ci_lo = test$conf.int[1], ci_hi = test$conf.int[2])
                 } else {
-                   test <- wilcox.test(y ~ x, alternative = "two.sided", correct = FALSE)
+                   test <- suppressWarnings(wilcox.test(y ~ x, alternative = "two.sided", correct = FALSE))
                    res$test <- "Mann-Whitney U Test"
                    res$p <- test$p.value
                    res$stat <- paste("W =", round(test$statistic, 2))
@@ -1198,9 +1213,9 @@ server <- function(input, output, session) {
                 diffs <- sub_df[[1]] - sub_df[[2]]
                 is_normal <- TRUE
                 if(length(diffs) >= 3 && length(diffs) <= 5000) {
-                   sw <- shapiro.test(diffs)
-                   if(sw$p.value < 0.05) is_normal <- FALSE
-                   res$diff_shapiro_p <- sw$p.value
+                   sw_p <- tryCatch(shapiro.test(diffs)$p.value, error = function(e) 0)
+                   if(sw_p < 0.05) is_normal <- FALSE
+                   res$diff_shapiro_p <- sw_p
                 }
                 res$is_normal <- is_normal
                 
@@ -1213,7 +1228,7 @@ server <- function(input, output, session) {
                    # Fix for floating-point precision issues vs SPSS
                    # Round differences to ensure ties are handled consistently (Safe at 10 decimals)
                    diffs_rounded <- round(sub_df[[1]] - sub_df[[2]], 10)
-                   test <- wilcox.test(diffs_rounded, alternative = "two.sided", correct = FALSE)
+                   test <- suppressWarnings(wilcox.test(diffs_rounded, alternative = "two.sided", correct = FALSE))
                    res$test <- "Wilcoxon Signed-Rank"; res$p <- test$p.value; res$stat <- paste("V =", round(test$statistic, 2))
                    res$note <- "Diffs not normal."
                 }
@@ -1236,9 +1251,9 @@ server <- function(input, output, session) {
                 res$diff_shapiro_p <- NA
                 
                 if(length(residuals_vec) >= 3 && length(residuals_vec) <= 5000) {
-                   sw <- shapiro.test(residuals_vec)
-                   res$diff_shapiro_p <- sw$p.value
-                   if(sw$p.value < 0.05) is_normal <- FALSE
+                   sw_p <- tryCatch(shapiro.test(residuals_vec)$p.value, error = function(e) 0)
+                   res$diff_shapiro_p <- sw_p
+                   if(sw_p < 0.05) is_normal <- FALSE
                 }
                 res$is_normal <- is_normal
                 
@@ -1433,6 +1448,9 @@ server <- function(input, output, session) {
              }
           }
        }
+       if(!is.null(res$p) && (is.na(res$p) || is.nan(res$p))) {
+           res$p <- 1
+       }
        return(res)
     }
 
@@ -1459,21 +1477,21 @@ server <- function(input, output, session) {
        p_x <- NA; p_y <- NA
        
        if(length(x) >= 3 && length(x) <= 5000) {
-          tx <- shapiro.test(x)
-          if(tx$p.value < 0.05) n_x <- FALSE
-          p_x <- tx$p.value
+          p_x <- tryCatch(shapiro.test(x)$p.value, error = function(e) 0)
+          if(p_x < 0.05) n_x <- FALSE
+          p_x <- p_x
        }
        if(length(y) >= 3 && length(y) <= 5000) {
-          ty <- shapiro.test(y)
-          if(ty$p.value < 0.05) n_y <- FALSE
-          p_y <- ty$p.value
+          p_y <- tryCatch(shapiro.test(y)$p.value, error = function(e) 0)
+          if(p_y < 0.05) n_y <- FALSE
+          p_y <- p_y
        }
        
        res$normality <- list(x_normal = n_x, y_normal = n_y, x_p = p_x, y_p = p_y)
        
        if(n_x && n_y) {
           # Pearson
-          test <- cor.test(x, y, method = "pearson", alternative = "two.sided")
+          test <- tryCatch(cor.test(x, y, method = "pearson", alternative = "two.sided"), error = function(e) list(estimate = c(cor=0), p.value = 1, conf.int = c(0,0)))
           res$test <- "Pearson Correlation"
           res$coeff <- test$estimate
           res$p <- test$p.value
@@ -1481,7 +1499,7 @@ server <- function(input, output, session) {
           res$note <- "Both variables normally distributed."
        } else {
           # Spearman
-          test <- cor.test(x, y, method = "spearman", exact=FALSE, alternative = "two.sided")
+          test <- tryCatch(cor.test(x, y, method = "spearman", exact=FALSE, alternative = "two.sided"), error = function(e) list(estimate = c(rho=0), p.value = 1))
           res$test <- "Spearman Correlation"
           res$coeff <- test$estimate
           res$p <- test$p.value
@@ -1503,6 +1521,9 @@ server <- function(input, output, session) {
        p_txt <- if(res$p < 0.001) "< 0.001" else paste("=", formatC(res$p, format="f", digits=3))
        ci_txt <- if(!is.null(res$ci)) glue(", 95% CI: {round(res$ci[1], 2)} to {round(res$ci[2], 2)}") else ""
        
+       if(!is.null(res$p) && (is.na(res$p) || is.nan(res$p))) {
+           res$p <- 1
+       }
        res$interpretation <- glue("There was a {strength} {direction} correlation between {var1} and {var2} (r = {round(r, 2)}, P {p_txt}{ci_txt}).")
        return(res)
     }
@@ -1528,21 +1549,19 @@ server <- function(input, output, session) {
        p_x <- NA; p_y <- NA
        
        if(length(x) >= 3 && length(x) <= 5000) {
-          tx <- shapiro.test(x)
-          if(tx$p.value < 0.05) n_x <- FALSE
-          p_x <- tx$p.value
+          p_x <- tryCatch(shapiro.test(x)$p.value, error = function(e) 0)
+          if(p_x < 0.05) n_x <- FALSE
        }
        if(length(y) >= 3 && length(y) <= 5000) {
-          ty <- shapiro.test(y)
-          if(ty$p.value < 0.05) n_y <- FALSE
-          p_y <- ty$p.value
+          p_y <- tryCatch(shapiro.test(y)$p.value, error = function(e) 0)
+          if(p_y < 0.05) n_y <- FALSE
        }
        
        res$normality <- list(x_normal = n_x, y_normal = n_y, x_p = p_x, y_p = p_y)
        
        if(n_x && n_y) {
           # Pearson
-          test <- cor.test(x, y, method = "pearson", alternative = "two.sided")
+          test <- tryCatch(cor.test(x, y, method = "pearson", alternative = "two.sided"), error = function(e) list(estimate = c(cor=0), p.value = 1, conf.int = c(0,0)))
           res$test <- "Pearson Correlation"
           res$coeff <- test$estimate
           res$p <- test$p.value
@@ -1550,7 +1569,7 @@ server <- function(input, output, session) {
           res$note <- "Both variables normal."
        } else {
           # Spearman
-          test <- cor.test(x, y, method = "spearman", exact=FALSE, alternative = "two.sided")
+          test <- tryCatch(cor.test(x, y, method = "spearman", exact=FALSE, alternative = "two.sided"), error = function(e) list(estimate = c(rho=0), p.value = 1))
           res$test <- "Spearman Correlation"
           res$coeff <- test$estimate
           res$p <- test$p.value
@@ -1572,6 +1591,9 @@ server <- function(input, output, session) {
        p_txt <- if(res$p < 0.001) "< 0.001" else paste("=", formatC(res$p, format="f", digits=3))
        ci_txt <- if(!is.null(res$ci)) glue(", 95% CI: {round(res$ci[1], 2)} to {round(res$ci[2], 2)}") else ""
        
+       if(!is.null(res$p) && (is.na(res$p) || is.nan(res$p))) {
+           res$p <- 1
+       }
        res$interpretation <- glue("There was a {strength} {direction} correlation between {p_corr1} and {p_corr2} (r = {round(r, 2)}, P {p_txt}{ci_txt}).")
        
        return(res)
@@ -1986,7 +2008,7 @@ server <- function(input, output, session) {
   table_data_list <- reactive({
     req(results())
     res <- results()
-    df <- data()
+    df <- vals$filtered_data %||% data()
     
     # --- MATCHING VAR TYPE OVERRIDES ---
     p_outcome <- input$outcome_var
@@ -2171,7 +2193,7 @@ server <- function(input, output, session) {
                
                # Normality
                sw_p <- NA
-               if(length(yg) >= 3 && length(yg) <= 5000) sw_p <- shapiro.test(yg)$p.value
+               if(length(yg) >= 3 && length(yg) <= 5000) sw_p <- tryCatch(shapiro.test(yg)$p.value, error = function(e) 0)
                norm_df[[new_col_name]] <- fmt_p_3(sw_p)
                
                # Main Stats
@@ -2607,8 +2629,8 @@ server <- function(input, output, session) {
       updateNumericInput(session, "y_min", value = NA)
       updateNumericInput(session, "y_max", value = NA)
       updateNumericInput(session, "y_step", value = NA)
-      updateCheckboxInput(session, "remove_axis_gap", value = TRUE)
-      updateCheckboxInput(session, "remove_axis_gap_y", value = FALSE)
+      updateCheckboxInput(session, "remove_axis_gap", value = FALSE)
+      updateCheckboxInput(session, "remove_axis_gap_y", value = TRUE)
       
       # 5. Other Elements
       updateCheckboxInput(session, "show_plot_title", value = TRUE)
@@ -2616,6 +2638,8 @@ server <- function(input, output, session) {
       updateCheckboxInput(session, "show_jitter", value = FALSE)
       updateCheckboxInput(session, "add_ref_line", value = FALSE)
       updateNumericInput(session, "ref_line_val", value = 0)
+      updateCheckboxInput(session, "show_boxplot_caps", value = FALSE)
+      updateSelectInput(session, "force_plot_type", selected = "auto")
       
       # 6. Significance
       updateCheckboxInput(session, "show_signif", value = TRUE)
@@ -2631,7 +2655,7 @@ server <- function(input, output, session) {
   final_plot <- reactive({
     req(input$analyze)
     res <- results()
-    df <- data()
+    df <- vals$filtered_data %||% data()
     
     # --- MATCHING VAR TYPE OVERRIDES ---
     p_outcome <- input$outcome_var
@@ -2828,37 +2852,51 @@ server <- function(input, output, session) {
           
           # CHECK: Is this Paired Analysis or Independent?
           is_paired_split <- grepl("paired", first_res$mode)
+          message("[DEBUG SPLIT] is_paired_split=", is_paired_split, " mode=", first_res$mode)
           
           if(is_paired_split) {
              # --- PAIRED SPLIT PREP ---
              # Reshape Wide -> Long so it mimics Independent structure for plotting (Group vs Split)
              p_paired <- first_res$params$paired_vars
+             message("[DEBUG SPLIT] p_paired=", paste(p_paired, collapse=","), " p_split=", p_split)
              
              # Filter & Reshape
              # We take Split Var + Paired Columns
              sub_cols <- c(p_split, p_paired)
-             df_temp <- df[, sub_cols]
+             message("[DEBUG SPLIT] sub_cols=", paste(sub_cols, collapse=","), " df_cols=", paste(names(df)[1:min(10,ncol(df))], collapse=","))
+             
+             # Check columns exist before subsetting
+             missing_cols <- sub_cols[!sub_cols %in% names(df)]
+             if(length(missing_cols) > 0) {
+                message("[DEBUG SPLIT] MISSING columns: ", paste(missing_cols, collapse=","))
+                return(NULL)
+             }
+             
+             df_temp <- df[, sub_cols, drop = FALSE]
              df_temp <- na.omit(df_temp)
+             message("[DEBUG SPLIT] df_temp nrow=", nrow(df_temp), " ncol=", ncol(df_temp))
              
-             # Reshape using stack/pivot logic
-             # Using tidyr::pivot_longer (tidyr is loaded)
-             df_plot <- tryCatch({
-                 df_temp %>%
-                    tidyr::pivot_longer(
-                       cols = dplyr::all_of(p_paired),
-                       names_to = "Group",
-                       values_to = "Value"
-                    )
-             }, error = function(e) return(NULL))
+             if(nrow(df_temp) == 0) { message("[DEBUG SPLIT] df_temp empty after na.omit"); return(NULL) }
              
-             if(is.null(df_plot)) return(NULL)
+             # Safe column name to avoid collision when p_split == "Group"
+             paired_grp_col <- if(p_split == "Group") ".PairedGroup" else "Group"
+             
+             # Reshape Wide -> Long using base R (robust for column names with spaces)
+             long_parts <- lapply(p_paired, function(col_name) {
+                 temp_part <- df_temp[, p_split, drop = FALSE]
+                 temp_part[[paired_grp_col]] <- col_name
+                 temp_part$Value <- df_temp[[col_name]]
+                 temp_part
+              })
+              df_plot <- do.call(rbind, long_parts)
+              message("[DEBUG SPLIT] manual reshape OK nrow=", nrow(df_plot), " cols=", paste(names(df_plot), collapse=","))
              
              # Set "Virtual" Param Names for the Plotter
              p_outcome <- "Value"
-             p_group <- "Group"
+             p_group <- paired_grp_col
              
              # Ensure Factor Order Matches Input Order
-             df_plot$Group <- factor(df_plot$Group, levels = p_paired)
+             df_plot[[paired_grp_col]] <- factor(df_plot[[paired_grp_col]], levels = p_paired)
              
           } else {
              # --- INDEPENDENT SPLIT PREP ---
@@ -2906,6 +2944,10 @@ server <- function(input, output, session) {
                 is_global_parametric <- FALSE
                 break 
              }
+          }
+          
+          if(!is.null(input$force_plot_type) && input$force_plot_type != "auto") {
+             is_global_parametric <- (input$force_plot_type == "bar")
           }
           
           if(!is.null(first_res$mode) && first_res$mode == "correlation") {
@@ -2969,7 +3011,8 @@ server <- function(input, output, session) {
              
              p <- p + labs(title = final_title, x = final_x, y = final_y, caption = caption_txt) +
                  scale_x_continuous(expand = x_expansion)
-             return(p)
+             message("[DEBUG SPLIT] Returning p, class=", paste(class(p), collapse=","))
+        return(p)
              
           } else if(grepl("categorical", first_res$mode)) {
              # Categorical Outcome: Stacked Bar Faceted
@@ -3032,11 +3075,11 @@ server <- function(input, output, session) {
                 
                 # Base Aes
                 p <- ggplot(summ_df, aes(x = .data[[p_split]], y = Mean, fill = .data[[p_group]])) +
-                   geom_bar(stat = "identity", position = position_dodge(width = 0.9), color=bar_border, size=sw) +
                    geom_errorbar(aes(
                       ymin = case_when(Mean >= 0 ~ Mean, TRUE ~ Mean - SD),
                       ymax = case_when(Mean >= 0 ~ Mean + SD, TRUE ~ Mean)
                    ), position = position_dodge(width = 0.9), width = 0.25, linewidth=sw) +
+                   geom_bar(stat = "identity", position = position_dodge(width = 0.9), color=bar_border, size=sw) +
                    my_theme + 
                    split_fill_scale
                 
@@ -3044,8 +3087,11 @@ server <- function(input, output, session) {
                 # --------------------------------
                 # NON-PARAMETRIC: Boxplot (Median + IQR)
                 # --------------------------------
-                p <- ggplot(df_plot, aes(x = .data[[p_split]], y = .data[[p_outcome]], fill = .data[[p_group]])) +
-                   geom_boxplot(outlier.shape = NA, color=bar_border, linewidth=sw) +
+                p <- ggplot(df_plot, aes(x = .data[[p_split]], y = .data[[p_outcome]], fill = .data[[p_group]]))
+                if(isTRUE(input$show_boxplot_caps)) {
+                   p <- p + stat_boxplot(geom = "errorbar", width = 0.2, color = bar_border, linewidth = sw)
+                }
+                p <- p + geom_boxplot(outlier.shape = NA, color=bar_border, linewidth=sw) +
                    my_theme +
                    split_fill_scale
                 
@@ -3229,11 +3275,23 @@ server <- function(input, output, session) {
                          sorted_comps <- comp_list[order(dists)]
                          
                          for(cp in sorted_comps) {
-                             p <- p + geom_signif(
-                                y_position = curr_y, xmin = cp$xmin, xmax = cp$xmax,
-                                annotations = cp$label, textsize = input$signif_font_size %||% 5,
-                                tip_length = input$signif_tip_length %||% 0.05
+                             # Manual bracket: bypass ggsignif stat conflicts
+                             tip_len_s <- input$signif_tip_length %||% 0.05
+                             tip_h_s <- y_bump * tip_len_s * 10
+                             if(tip_h_s == 0) tip_h_s <- 0.1
+                             
+                             seg_df <- data.frame(
+                                x = c(cp$xmin, cp$xmin, cp$xmax),
+                                xend = c(cp$xmin, cp$xmax, cp$xmax),
+                                y = c(curr_y - tip_h_s, curr_y, curr_y - tip_h_s),
+                                yend = c(curr_y, curr_y, curr_y)
                              )
+                             lab_df <- data.frame(x = (cp$xmin + cp$xmax) / 2, y = curr_y, label = cp$label)
+                             
+                             p <- p + geom_segment(data = seg_df, aes(x = x, xend = xend, y = y, yend = yend),
+                                                   inherit.aes = FALSE, linewidth = sw) +
+                                      geom_text(data = lab_df, aes(x = x, y = y, label = label),
+                                                inherit.aes = FALSE, vjust = -0.3, size = input$signif_font_size %||% 5)
                              curr_y <- curr_y + y_bump
                          }
                       }
@@ -3242,6 +3300,7 @@ server <- function(input, output, session) {
              }
           }
        
+       message("[DEBUG SPLIT] Final return of p")
        return(p)
     }
 
@@ -3329,6 +3388,10 @@ server <- function(input, output, session) {
         # ----------------------------------
         is_parametric <- isTRUE(res$is_normal)
         
+        if(!is.null(input$force_plot_type) && input$force_plot_type != "auto") {
+           is_parametric <- (input$force_plot_type == "bar")
+        }
+        
         # Determine global max for significance lines later
         # Default max
         global_max <- max(df_plot[[p_outcome]], na.rm=TRUE)
@@ -3349,18 +3412,21 @@ server <- function(input, output, session) {
            p_aes <- aes(x = .data[[p_group]], y = Mean)
            if(!is_single_color) p_aes <- aes(x = .data[[p_group]], y = Mean, fill = .data[[p_group]])
            
-           # Geom Bar
-           if(is_single_color) {
-              p <- ggplot(summ_df, p_aes) + geom_bar(stat = "identity", color=bar_border, width=0.7, fill=in_solid, linewidth=sw)
-           } else {
-              p <- ggplot(summ_df, p_aes) + geom_bar(stat = "identity", color=bar_border, width=0.7, linewidth=sw) + fill_scale
-           }
-           
-           # Error Bars
-           p <- p + geom_errorbar(aes(
+           # Start with Error Bars
+           p <- ggplot(summ_df, p_aes) + 
+              geom_errorbar(aes(
                  ymin = case_when(Mean >= 0 ~ Mean, TRUE ~ Mean - SD),
                  ymax = case_when(Mean >= 0 ~ Mean + SD, TRUE ~ Mean)
-              ), width = 0.2, linewidth=sw) + my_theme
+              ), width = 0.2, linewidth=sw)
+              
+           # Geom Bar (drawn over error bars to hide overlapping bottom cap)
+           if(is_single_color) {
+              p <- p + geom_bar(stat = "identity", color=bar_border, width=0.7, fill=in_solid, linewidth=sw)
+           } else {
+              p <- p + geom_bar(stat = "identity", color=bar_border, width=0.7, linewidth=sw) + fill_scale
+           }
+           
+           p <- p + my_theme
               
         } else {
            # NON-PARAMETRIC: Boxplot
@@ -3368,10 +3434,15 @@ server <- function(input, output, session) {
            p_aes <- aes(x = .data[[p_group]], y = .data[[p_outcome]])
            if(!is_single_color) p_aes <- aes(x = .data[[p_group]], y = .data[[p_outcome]], fill = .data[[p_group]])
 
+           p <- ggplot(df_plot, p_aes)
+           if(isTRUE(input$show_boxplot_caps)) {
+              p <- p + stat_boxplot(geom = "errorbar", width = 0.2, color = bar_border, linewidth = sw)
+           }
+
            if(is_single_color) {
-              p <- ggplot(df_plot, p_aes) + geom_boxplot(outlier.shape = NA, fill=in_solid, color=bar_border, linewidth=sw)
+              p <- p + geom_boxplot(outlier.shape = NA, fill=in_solid, color=bar_border, linewidth=sw)
            } else {
-              p <- ggplot(df_plot, p_aes) + geom_boxplot(outlier.shape = NA, color=bar_border, linewidth=sw) + fill_scale
+              p <- p + geom_boxplot(outlier.shape = NA, color=bar_border, linewidth=sw) + fill_scale
            }
            
            p <- p + my_theme
@@ -3502,15 +3573,32 @@ server <- function(input, output, session) {
                  
                  y_pos_sorted <- seq(from = y_start, by = y_step, length.out = length(comps_sorted))
                  
-                 p <- p + geom_signif(
-                    comparisons = comps_sorted,
-                    annotations = annots_sorted,
-                    y_position = y_pos_sorted, # Explicit sorted positions
-                    textsize = input$signif_font_size %||% 5,
-                    tip_length = input$signif_tip_length %||% 0.05,
-                    map_signif_level = FALSE,
-                    linewidth = sw
-                 )
+                 # Manual significance brackets (bypass ggsignif stat conflicts)
+                 tip_len <- input$signif_tip_length %||% 0.05
+                 txt_size <- input$signif_font_size %||% 5
+                 sig_range <- max(df_plot[[p_outcome]], na.rm=TRUE) - min(df_plot[[p_outcome]], na.rm=TRUE)
+                 if(sig_range == 0) sig_range <- 1
+                 tip_h <- sig_range * tip_len
+                 
+                 for(si in seq_along(comps_sorted)) {
+                    xi1 <- which(lvl_order == comps_sorted[[si]][1])
+                    xi2 <- which(lvl_order == comps_sorted[[si]][2])
+                    yp <- y_pos_sorted[si]
+                    
+                    # Bracket: left tip, horizontal bar, right tip
+                    seg_df <- data.frame(
+                       x = c(xi1, xi1, xi2),
+                       xend = c(xi1, xi2, xi2),
+                       y = c(yp - tip_h, yp, yp - tip_h),
+                       yend = c(yp, yp, yp)
+                    )
+                    lab_df <- data.frame(x = (xi1 + xi2) / 2, y = yp, label = annots_sorted[si])
+                    
+                    p <- p + geom_segment(data = seg_df, aes(x = x, xend = xend, y = y, yend = yend),
+                                          inherit.aes = FALSE, linewidth = sw) +
+                             geom_text(data = lab_df, aes(x = x, y = y, label = label),
+                                       inherit.aes = FALSE, vjust = -0.3, size = txt_size)
+                 }
               }
            }
         }
@@ -3572,8 +3660,11 @@ server <- function(input, output, session) {
       } else {
          # Paired Numeric (Bar or Boxplot)
          # Using logic similar to Independent Analysis
-         
          is_parametric <- isTRUE(res$is_normal)
+         
+         if(!is.null(input$force_plot_type) && input$force_plot_type != "auto") {
+            is_parametric <- (input$force_plot_type == "bar")
+         }
          # SAFEGUARD
          cm <- input$color_mapping %||% "group"
          is_single_color <- (cm == "single")
@@ -3616,23 +3707,33 @@ server <- function(input, output, session) {
              p_aes_summ <- aes(x = Group, y = Mean)
              if(!is_single_color) p_aes_summ <- aes(x = Group, y = Mean, fill = Group)
              
-             if(is_single_color) {
-                p <- ggplot(summ_df, p_aes_summ) + geom_bar(stat = "identity", color=bar_border, width=0.7, fill=in_solid, linewidth=sw)
-             } else {
-                p <- ggplot(summ_df, p_aes_summ) + geom_bar(stat = "identity", color=bar_border, width=0.7, linewidth=sw) + fill_scale
-             }
-             
-             p <- p + geom_errorbar(aes(
+             # Start with Error Bars
+             p <- ggplot(summ_df, p_aes_summ) + 
+                geom_errorbar(aes(
                    ymin = case_when(Mean >= 0 ~ Mean, TRUE ~ Mean - SD),
                    ymax = case_when(Mean >= 0 ~ Mean + SD, TRUE ~ Mean)
-                ), width = 0.2, linewidth=sw) + my_theme
+                ), width = 0.2, linewidth=sw)
+                
+             # Geom Bar
+             if(is_single_color) {
+                p <- p + geom_bar(stat = "identity", color=bar_border, width=0.7, fill=in_solid, linewidth=sw)
+             } else {
+                p <- p + geom_bar(stat = "identity", color=bar_border, width=0.7, linewidth=sw) + fill_scale
+             }
+             
+             p <- p + my_theme
              
          } else {
              # NON-PARAMETRIC: Boxplot
+             p <- ggplot(long_df, p_aes)
+             if(isTRUE(input$show_boxplot_caps)) {
+                p <- p + stat_boxplot(geom = "errorbar", width = 0.2, color = bar_border, linewidth = sw)
+             }
+             
              if(is_single_color) {
-                p <- ggplot(long_df, p_aes) + geom_boxplot(outlier.shape = NA, fill=in_solid, color=bar_border, linewidth=sw)
+                p <- p + geom_boxplot(outlier.shape = NA, fill=in_solid, color=bar_border, linewidth=sw)
              } else {
-                p <- ggplot(long_df, p_aes) + geom_boxplot(outlier.shape = NA, color=bar_border, linewidth=sw) + fill_scale
+                p <- p + geom_boxplot(outlier.shape = NA, color=bar_border, linewidth=sw) + fill_scale
              }
              p <- p + my_theme
          }
@@ -3753,15 +3854,31 @@ server <- function(input, output, session) {
                   
                   y_pos_sorted <- seq(from = y_start, by = y_step, length.out = length(comps_sorted))
                   
-                  p <- p + geom_signif(
-                     comparisons = comps_sorted,
-                     annotations = annots_sorted,
-                     y_position = y_pos_sorted, 
-                     textsize = input$signif_font_size %||% 5,
-                     tip_length = input$signif_tip_length %||% 0.05,
-                     map_signif_level = FALSE,
-                     linewidth = sw
-                  )
+                  # Manual significance brackets (bypass ggsignif stat conflicts)
+                  tip_len <- input$signif_tip_length %||% 0.05
+                  txt_size <- input$signif_font_size %||% 5
+                  sig_range_p <- max(long_df$Value, na.rm=TRUE) - min(long_df$Value, na.rm=TRUE)
+                  if(sig_range_p == 0) sig_range_p <- 1
+                  tip_h <- sig_range_p * tip_len
+                  
+                  for(si in seq_along(comps_sorted)) {
+                     xi1 <- which(lvl_order == comps_sorted[[si]][1])
+                     xi2 <- which(lvl_order == comps_sorted[[si]][2])
+                     yp <- y_pos_sorted[si]
+                     
+                     seg_df <- data.frame(
+                        x = c(xi1, xi1, xi2),
+                        xend = c(xi1, xi2, xi2),
+                        y = c(yp - tip_h, yp, yp - tip_h),
+                        yend = c(yp, yp, yp)
+                     )
+                     lab_df <- data.frame(x = (xi1 + xi2) / 2, y = yp, label = annots_sorted[si])
+                     
+                     p <- p + geom_segment(data = seg_df, aes(x = x, xend = xend, y = y, yend = yend),
+                                           inherit.aes = FALSE, linewidth = sw) +
+                              geom_text(data = lab_df, aes(x = x, y = y, label = label),
+                                        inherit.aes = FALSE, vjust = -0.3, size = txt_size)
+                  }
                }
             }
          }

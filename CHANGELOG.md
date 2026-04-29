@@ -5,7 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## \[1.2.0] - 2026-02-24
+## [1.3.0] - 2026-04-29
+
+### Added
+
+* **Plot Customization**: Added an option for **Whisker Cap** and the ability to **Force Change Plot Type** (e.g., from Boxplot to Barplot).
+
+### Fixed
+
+* **Statistical Robustness**:
+  * Fixed a bug in **Chi-Square Tests** when handling constant data.
+  * Suppressed "cannot compute exact p-value with ties" warnings in **Mann-Whitney U** and **Wilcoxon Signed-Rank** tests for cleaner output.
+  * Fixed application crashes caused by **zero variance groups** by adding robust error handling to all statistical test paths.
+* **Analysis Fixes**:
+  * Fixed **Significance Bracket** crashes (geom_signif "Can only handle data with groups plotted on x-axis") by implementing manual `geom_segment` + `geom_text` drawing for all analysis paths (Independent, Split Group, Paired).
+  * Fixed **Paired Split Analysis** blank plots caused by `pivot_longer` failing on column names with spaces; switched to base R `reshape`.
+  * Resolved a crash in **Paired Split Analysis** when the split variable was named "Group" (naming collision).
+* **UI & Filtering**:
+  * **Reset Appearance** now correctly restores "Remove Gap from X-Axis" and "Remove Gap from Y-Axis" defaults.
+  * Improved **Filtering Logic** to properly exclude missing values globally across all visualizations and tables.
+  * Minor visual fix for the **Whisker Bar** alignment in error bars.
+
+## \[1.2.0] - 2026-02-13
 
 ### Added
 
@@ -75,4 +96,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * Auto-significance brackets.
 
 * **Reporting**: Natural language interpretation of statistical results.
-

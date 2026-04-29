@@ -2319,11 +2319,11 @@ server <- function(input, output, session) {
                 
                 # Base Aes
                 p <- ggplot(summ_df, aes(x = .data[[p_split]], y = Mean, fill = .data[[p_group]])) +
-                   geom_bar(stat = "identity", position = position_dodge(width = 0.9), color="black") +
                    geom_errorbar(aes(
                       ymin = case_when(Mean >= 0 ~ Mean, TRUE ~ Mean - SD),
                       ymax = case_when(Mean >= 0 ~ Mean + SD, TRUE ~ Mean)
                    ), position = position_dodge(width = 0.9), width = 0.25) +
+                   geom_bar(stat = "identity", position = position_dodge(width = 0.9), color="black") +
                    my_theme + 
                    split_fill_scale
                 
@@ -2635,18 +2635,21 @@ server <- function(input, output, session) {
            p_aes <- aes(x = .data[[p_group]], y = Mean)
            if(!is_single_color) p_aes <- aes(x = .data[[p_group]], y = Mean, fill = .data[[p_group]])
            
-           # Geom Bar
-           if(is_single_color) {
-              p <- ggplot(summ_df, p_aes) + geom_bar(stat = "identity", color="black", width=0.7, fill=in_solid)
-           } else {
-              p <- ggplot(summ_df, p_aes) + geom_bar(stat = "identity", color="black", width=0.7) + fill_scale
-           }
-           
            # Error Bars
-           p <- p + geom_errorbar(aes(
+           p <- ggplot(summ_df, p_aes) + 
+              geom_errorbar(aes(
                  ymin = case_when(Mean >= 0 ~ Mean, TRUE ~ Mean - SD),
                  ymax = case_when(Mean >= 0 ~ Mean + SD, TRUE ~ Mean)
-              ), width = 0.2) + my_theme
+              ), width = 0.2)
+              
+           # Geom Bar
+           if(is_single_color) {
+              p <- p + geom_bar(stat = "identity", color="black", width=0.7, fill=in_solid)
+           } else {
+              p <- p + geom_bar(stat = "identity", color="black", width=0.7) + fill_scale
+           }
+           
+           p <- p + my_theme
               
         } else {
            # NON-PARAMETRIC: Boxplot
@@ -2895,16 +2898,21 @@ server <- function(input, output, session) {
              p_aes_summ <- aes(x = Group, y = Mean)
              if(!is_single_color) p_aes_summ <- aes(x = Group, y = Mean, fill = Group)
              
-             if(is_single_color) {
-                p <- ggplot(summ_df, p_aes_summ) + geom_bar(stat = "identity", color="black", width=0.7, fill=in_solid)
-             } else {
-                p <- ggplot(summ_df, p_aes_summ) + geom_bar(stat = "identity", color="black", width=0.7) + fill_scale
-             }
-             
-             p <- p + geom_errorbar(aes(
+             # Error Bars
+             p <- ggplot(summ_df, p_aes_summ) + 
+                geom_errorbar(aes(
                    ymin = case_when(Mean >= 0 ~ Mean, TRUE ~ Mean - SD),
                    ymax = case_when(Mean >= 0 ~ Mean + SD, TRUE ~ Mean)
-                ), width = 0.2) + my_theme
+                ), width = 0.2)
+                
+             # Geom Bar
+             if(is_single_color) {
+                p <- p + geom_bar(stat = "identity", color="black", width=0.7, fill=in_solid)
+             } else {
+                p <- p + geom_bar(stat = "identity", color="black", width=0.7) + fill_scale
+             }
+             
+             p <- p + my_theme
              
          } else {
              # NON-PARAMETRIC: Boxplot

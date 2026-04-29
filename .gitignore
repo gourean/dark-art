@@ -1,0 +1,7 @@
+.Rhistory
+.RData
+.Rproj.user
+.vscode/
+*.txt
+!README.md
+!CHANGELOG.md
