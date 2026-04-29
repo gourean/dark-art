@@ -36,16 +36,16 @@ jobs:
 
       - name: Install Dependencies and Build App
         run: |
-          # 1. Setup Repositories (Matching last successful deployment: Feb 24, 2026)
-          options(repos = c(CRAN = "https://packagemanager.posit.co/cran/2026-02-24"))
+          # 1. Install all required packages from the Feb 24, 2026 snapshot
+          repo <- "https://packagemanager.posit.co/cran/2026-02-24"
+          install.packages(c(
+            "shiny", "bslib", "ggplot2", "dplyr", "glue",
+            "dunn.test", "scales", "svglite", "ggsignif",
+            "colourpicker", "tidyr", "munsell", "DT",
+            "shinylive", "httpuv", "rlang"
+          ), repos = repo)
           
-          # 2. Install Build Tools
-          install.packages(c("remotes", "shinylive"))
-          
-          # 3. Install App Dependencies from DESCRIPTION
-          remotes::install_deps(dependencies = TRUE)
-          
-          # 4. Build the App
+          # 2. Build the App
           library(shinylive)
           assets_download()
           unlink("_site", recursive = TRUE)
