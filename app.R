@@ -2,10 +2,6 @@
 # 0. SETUP & PACKAGE INSTALLATION
 # Ensure all required packages are installed before loading.
 # ==============================================================================
-if (isTRUE(getOption("webr.active"))) {
-  webr::install("rlang")
-  webr::install("ggplot2")
-}
 
 # Load libraries
 library(shiny)
