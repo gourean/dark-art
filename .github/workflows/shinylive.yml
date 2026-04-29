@@ -36,19 +36,19 @@ jobs:
 
       - name: Install App Dependencies
         run: |
-          # Use a fixed snapshot to ensure compatibility
-          options(repos = c(CRAN = "https://packagemanager.posit.co/cran/2026-04-01"))
-          install.packages("remotes")
-          install.packages("shinylive")
+          # Install build tools from a reliable CRAN mirror
+          install.packages(c("remotes", "shinylive"), repos = "https://cloud.r-project.org")
+          # Use an older, stable snapshot for the app's own dependencies
+          options(repos = c(CRAN = "https://packagemanager.posit.co/cran/2024-10-01"))
           remotes::install_deps(dependencies = TRUE)
         shell: Rscript {0}
 
       - name: Build Applications
         run: |
+          # Ensure we use the version of shinylive we just installed
           library(shinylive)
           assets_download()
           unlink("_site", recursive = TRUE)
-          # Re-enable include_packages = TRUE (default) with the snapshot-consistent library
           export(appdir = ".", destdir = "_site")
         shell: Rscript {0}
 
