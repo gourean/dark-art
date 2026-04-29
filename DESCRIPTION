@@ -21,6 +21,6 @@ Imports:
     tidyr,
     munsell,
     DT,
-    rlang (>= 1.1.7)
+    rlang (>= 1.1.6)
 Encoding: UTF-8
 RoxygenNote: 7.2.3

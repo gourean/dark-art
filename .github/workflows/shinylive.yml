@@ -37,8 +37,8 @@ jobs:
       - name: Install App Dependencies
         run: |
           install.packages("pak", repos = "https://r-lib.github.io/p/pak/devel")
-          # Force installation of latest rlang and dependencies
-          pak::pkg_install(c("rlang", "shiny", "bslib", "ggplot2", "shinylive", "httpuv"))
+          # Force installation of versions compatible with WebR 1.1.6 pre-loaded rlang
+          pak::pkg_install(c("rlang@1.1.6", "ggplot2@3.5.0", "shiny", "bslib", "shinylive", "httpuv"))
           pak::local_install_dev_deps()
           # Print versions for debugging
           cat("rlang version: ", as.character(packageVersion("rlang")), "\n")

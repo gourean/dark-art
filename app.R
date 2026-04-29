@@ -5,7 +5,7 @@
 
 # Load libraries
 suppressPackageStartupMessages({
-  library(rlang)      # Explicitly load to ensure >= 1.1.7 for ggplot2 compatibility
+  library(rlang)      # Target 1.1.6 to match WebR environment
   library(shiny)
   library(bslib)      # For modern, clean UI
   library(ggplot2)    # For plotting
