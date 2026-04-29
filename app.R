@@ -5,7 +5,6 @@
 
 # Load libraries
 suppressPackageStartupMessages({
-  library(rlang)      # Target 1.1.6 to match WebR environment
   library(shiny)
   library(bslib)      # For modern, clean UI
   library(ggplot2)    # For plotting

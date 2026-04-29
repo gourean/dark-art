@@ -36,20 +36,21 @@ jobs:
 
       - name: Install App Dependencies
         run: |
-          install.packages("pak", repos = "https://r-lib.github.io/p/pak/devel")
-          # Force installation of versions compatible with WebR 1.1.6 pre-loaded rlang
-          pak::pkg_install(c("rlang@1.1.6", "ggplot2@3.5.0", "shiny", "bslib", "shinylive", "httpuv"))
-          pak::local_install_dev_deps()
-          # Print versions for debugging
-          cat("rlang version: ", as.character(packageVersion("rlang")), "\n")
-          cat("ggplot2 version: ", as.character(packageVersion("ggplot2")), "\n")
+          install.packages("remotes")
+          # Install shinylive from GitHub to ensure latest WebR assets
+          remotes::install_github("posit-dev/r-shinylive")
+          # Install dependencies from DESCRIPTION
+          remotes::install_deps(dependencies = TRUE)
+          # Ensure critical packages are up to date
+          install.packages(c("rlang", "ggplot2", "shiny", "bslib", "httpuv"))
         shell: Rscript {0}
 
       - name: Build Applications
         run: |
-          shinylive::assets_download()
+          library(shinylive)
+          assets_download()
           unlink("_site", recursive = TRUE)
-          shinylive::export(appdir = ".", destdir = "_site")
+          export(appdir = ".", destdir = "_site")
         shell: Rscript {0}
 
       - name: Upload pages artifact
