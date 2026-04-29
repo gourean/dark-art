@@ -29,20 +29,24 @@ jobs:
 
       - uses: r-lib/actions/setup-pandoc@v2
 
-      - name: Install Shinylive
+      - name: Install App Dependencies
         run: |
-          install.packages("shinylive")
-          cat("shinylive version:", as.character(packageVersion("shinylive")), "\n")
+          install.packages(c(
+            "shiny", "bslib", "ggplot2", "dplyr", "glue",
+            "dunn.test", "scales", "svglite", "ggsignif",
+            "colourpicker", "tidyr", "munsell", "DT",
+            "RColorBrewer", "httpuv"
+          ))
         shell: Rscript {0}
 
-      - name: Refresh WebR Assets
+      - name: Install Shinylive and Refresh Assets
         run: |
+          install.packages("shinylive")
           shinylive::assets_download()
         shell: Rscript {0}
 
       - name: Build Applications
         run: |
-          # Clean output to avoid stale cached packages
           unlink("_site", recursive = TRUE)
           shinylive::export(appdir = ".", destdir = "_site")
           shinylive::export(appdir = "v1", destdir = "_site/v1")
