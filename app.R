@@ -2,11 +2,10 @@
 # 0. SETUP & PACKAGE INSTALLATION
 # Ensure all required packages are installed before loading.
 # ==============================================================================
-# required_packages <- c("shiny", "bslib", "ggplot2", "dplyr", "glue", "dunn.test", "scales", "svglite", "ggsignif", "colourpicker", "tidyr", "DT")
-
-# Check if packages are installed; if not, install them.
-# new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
-# if(length(new_packages)) install.packages(new_packages)
+if (isTRUE(getOption("webr.active"))) {
+  webr::install("rlang")
+  webr::install("ggplot2")
+}
 
 # Load libraries
 library(shiny)
