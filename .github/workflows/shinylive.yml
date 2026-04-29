@@ -37,17 +37,23 @@ jobs:
       - name: Install Dependencies and Build App
         run: |
           # 1. Setup Binary Repositories (Ubuntu Jammy / 2026-02-24)
+          # Use warn=2 to treat warnings as errors during installation
+          options(warn = 2)
           options(repos = c(CRAN = "https://p3m.dev/cran/__linux__/jammy/2026-02-24"))
           
-          # 2. Install everything with full dependency resolution
+          message("Installing build tools...")
+          install.packages("shinylive")
+          
+          message("Installing app dependencies...")
           install.packages(c(
             "shiny", "bslib", "ggplot2", "dplyr", "glue",
             "dunn.test", "scales", "svglite", "ggsignif",
-            "colourpicker", "tidyr", "munsell", "DT",
-            "shinylive", "httpuv", "rlang"
+            "colourpicker", "tidyr", "munsell", "DT", "httpuv", "rlang"
           ), dependencies = TRUE)
           
           # 3. Build the App
+          if (!requireNamespace("shinylive", quietly = TRUE)) stop("shinylive package not found after installation!")
+          
           library(shinylive)
           assets_download()
           unlink("_site", recursive = TRUE)
