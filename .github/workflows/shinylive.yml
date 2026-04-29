@@ -33,7 +33,10 @@ jobs:
 
       - name: Build Shinylive App
         run: |
-          # 1. Verify versions from renv.lock
+          # 1. Install pak for robust dependency handling
+          if (!requireNamespace("pak", quietly = TRUE)) install.packages("pak")
+          
+          # 2. Verify versions from renv.lock
           cat("\n--- DEPLOYMENT VERSIONS ---\n")
           cat("R Version:", as.character(getRversion()), "\n")
           if (requireNamespace("rlang", quietly = TRUE)) {
@@ -41,19 +44,17 @@ jobs:
           }
           cat("---------------------------\n\n")
           
-          # 2. Install shinylive if not in renv (build tool only)
-          if (!requireNamespace("shinylive", quietly = TRUE)) {
-            install.packages("shinylive")
-          }
+          # 3. Install shinylive using pak (handles system libs better)
+          pak::pkg_install("shinylive")
           
-          # 3. Build the site
+          # 4. Build the site
+          # Note: assets_download() is skipped as export() handles it internally.
           library(shinylive)
-          assets_download()
           
           # Export Main App
           export(appdir = ".", destdir = "_site")
           
-          # Export V1 Legacy (ensures it is runnable at /v1/ URL)
+          # Export V1 Legacy
           export(appdir = "v1", destdir = "_site/v1")
         shell: Rscript {0}
 
