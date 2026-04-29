@@ -31,22 +31,16 @@ jobs:
 
       - name: Install App Dependencies
         run: |
-          install.packages(c(
-            "shiny", "bslib", "ggplot2", "dplyr", "glue",
-            "dunn.test", "scales", "svglite", "ggsignif",
-            "colourpicker", "tidyr", "munsell", "DT",
-            "RColorBrewer", "httpuv"
-          ))
-        shell: Rscript {0}
-
-      - name: Install Shinylive and Refresh Assets
-        run: |
-          install.packages("shinylive")
-          shinylive::assets_download()
+          install.packages("pak")
+          # Explicitly install rlang 1.1.7+ and other critical dependencies
+          pak::pkg_install(c("rlang", "shiny", "bslib", "ggplot2", "shinylive"))
+          # Install all other dependencies from DESCRIPTION
+          pak::local_install_dev_deps()
         shell: Rscript {0}
 
       - name: Build Applications
         run: |
+          shinylive::assets_download()
           unlink("_site", recursive = TRUE)
           shinylive::export(appdir = ".", destdir = "_site")
         shell: Rscript {0}

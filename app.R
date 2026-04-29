@@ -4,6 +4,7 @@
 # ==============================================================================
 
 # Load libraries
+library(rlang)      # Explicitly load to ensure >= 1.1.7 for ggplot2 compatibility
 library(shiny)
 library(bslib)      # For modern, clean UI
 library(ggplot2)    # For plotting
