@@ -36,13 +36,8 @@ jobs:
 
       - name: Install App Dependencies
         run: |
-          install.packages("remotes")
-          # Install shinylive from GitHub to ensure latest WebR assets
-          remotes::install_github("posit-dev/r-shinylive")
-          # Install dependencies from DESCRIPTION
-          remotes::install_deps(dependencies = TRUE)
-          # Ensure critical packages are up to date
-          install.packages(c("rlang", "ggplot2", "shiny", "bslib", "httpuv"))
+          install.packages("shinylive")
+          # No need to install app deps in CI if we are not bundling them
         shell: Rscript {0}
 
       - name: Build Applications
@@ -50,7 +45,8 @@ jobs:
           library(shinylive)
           assets_download()
           unlink("_site", recursive = TRUE)
-          export(appdir = ".", destdir = "_site")
+          # Use include_packages = FALSE to fetch compatible binaries at runtime
+          export(appdir = ".", destdir = "_site", include_packages = FALSE)
         shell: Rscript {0}
 
       - name: Upload pages artifact
