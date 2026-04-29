@@ -3,23 +3,22 @@
 # Ensure all required packages are installed before loading.
 # ==============================================================================
 
-# Load libraries using require() to bypass Shinylive's static dependency preloading
-# This helps resolve the "rlang 1.1.6 already loaded" conflict in the browser.
+# Load libraries
 suppressPackageStartupMessages({
-  require(shiny)
-  require(rlang)        # Load early to prevent version conflicts in WebR
-  require(bslib)        # For modern, clean UI
-  require(colourpicker) # For custom color selection
-  require(dplyr)        # For data manipulation
-  require(DT)           # For interactive tables
-  require(dunn.test)    # For non-parametric pairwise comparisons
-  require(ggplot2)      # For plotting
-  require(ggsignif)     # For significance brackets
-  require(glue)         # For smart text generation
-  require(munsell)      # Explicitly load to fix ggplot2 dependency error
-  require(scales)       # Explicitly load for formatting
-  require(svglite)      # Explicitly load for SVG export
-  require(tidyr)        # For data reshaping
+  library(shiny)
+  library(rlang)        # Load early to prevent version conflicts in WebR
+  library(bslib)        # For modern, clean UI
+  library(colourpicker) # For custom color selection
+  library(dplyr)        # For data manipulation
+  library(DT)           # For interactive tables
+  library(dunn.test)    # For non-parametric pairwise comparisons
+  library(ggplot2)      # For plotting
+  library(ggsignif)     # For significance brackets
+  library(glue)         # For smart text generation
+  library(munsell)      # Explicitly load to fix ggplot2 dependency error
+  library(scales)       # Explicitly load for formatting
+  library(svglite)      # Explicitly load for SVG export
+  library(tidyr)        # For data reshaping
 })
 
 # ==============================================================================
