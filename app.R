@@ -4,20 +4,22 @@
 # ==============================================================================
 
 # Load libraries
-library(rlang)      # Explicitly load to ensure >= 1.1.7 for ggplot2 compatibility
-library(shiny)
-library(bslib)      # For modern, clean UI
-library(ggplot2)    # For plotting
-library(dplyr)      # For data manipulation
-library(glue)       # For smart text generation
-library(dunn.test)  # For non-parametric pairwise comparisons
-library(ggsignif)   # For significance brackets
-library(colourpicker) # For custom color selection
-library(tidyr)      # For data reshaping
-library(scales)     # Explicitly load for formatting
-library(svglite)    # Explicitly load for SVG export
-library(munsell)    # Explicitly load to fix ggplot2 dependency error
-library(DT)         # For interactive tables
+suppressPackageStartupMessages({
+  library(rlang)      # Explicitly load to ensure >= 1.1.7 for ggplot2 compatibility
+  library(shiny)
+  library(bslib)      # For modern, clean UI
+  library(ggplot2)    # For plotting
+  library(dplyr)      # For data manipulation
+  library(glue)       # For smart text generation
+  library(dunn.test)  # For non-parametric pairwise comparisons
+  library(ggsignif)   # For significance brackets
+  library(colourpicker) # For custom color selection
+  library(tidyr)      # For data reshaping
+  library(scales)     # Explicitly load for formatting
+  library(svglite)    # Explicitly load for SVG export
+  library(munsell)    # Explicitly load to fix ggplot2 dependency error
+  library(DT)         # For interactive tables
+})
 
 # ==============================================================================
 # 1. THE FRONTEND (UI)
