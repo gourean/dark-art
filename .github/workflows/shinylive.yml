@@ -34,18 +34,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev
 
-      - name: Install App Dependencies
+      - name: Install Dependencies and Build App
         run: |
-          # Install build tools from a reliable CRAN mirror
-          install.packages(c("remotes", "shinylive"), repos = "https://cloud.r-project.org")
-          # Use an older, stable snapshot for the app's own dependencies
+          # 1. Setup Repositories
           options(repos = c(CRAN = "https://packagemanager.posit.co/cran/2024-10-01"))
+          
+          # 2. Install Build Tools
+          install.packages(c("remotes", "shinylive"))
+          
+          # 3. Install App Dependencies from DESCRIPTION
           remotes::install_deps(dependencies = TRUE)
-        shell: Rscript {0}
-
-      - name: Build Applications
-        run: |
-          # Ensure we use the version of shinylive we just installed
+          
+          # 4. Build the App
           library(shinylive)
           assets_download()
           unlink("_site", recursive = TRUE)
