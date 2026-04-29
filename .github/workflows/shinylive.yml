@@ -36,8 +36,11 @@ jobs:
 
       - name: Install App Dependencies
         run: |
+          # Use a fixed snapshot to ensure compatibility
+          options(repos = c(CRAN = "https://packagemanager.posit.co/cran/2026-04-01"))
+          install.packages("remotes")
           install.packages("shinylive")
-          # No need to install app deps in CI if we are not bundling them
+          remotes::install_deps(dependencies = TRUE)
         shell: Rscript {0}
 
       - name: Build Applications
@@ -45,8 +48,8 @@ jobs:
           library(shinylive)
           assets_download()
           unlink("_site", recursive = TRUE)
-          # Use include_packages = FALSE to fetch compatible binaries at runtime
-          export(appdir = ".", destdir = "_site", include_packages = FALSE)
+          # Re-enable include_packages = TRUE (default) with the snapshot-consistent library
+          export(appdir = ".", destdir = "_site")
         shell: Rscript {0}
 
       - name: Upload pages artifact

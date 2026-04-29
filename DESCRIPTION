@@ -10,7 +10,8 @@ License: MIT
 Imports: 
     shiny,
     bslib,
-    ggplot2 (>= 3.5.0),
+    rlang,
+    ggplot2,
     dplyr,
     glue,
     dunn.test,
@@ -20,7 +21,6 @@ Imports:
     colourpicker,
     tidyr,
     munsell,
-    DT,
-    rlang (>= 1.1.7)
+    DT
 Encoding: UTF-8
 RoxygenNote: 7.2.3
