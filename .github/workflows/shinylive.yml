@@ -32,7 +32,9 @@ jobs:
       # --- NEW STEP: Install your app's specific packages ---
       - name: Install App Dependencies
         run: |
-          install.packages(c("shiny", "bslib", "ggplot2", "dplyr", "glue", "dunn.test", "scales", "svglite", "ggsignif", "colourpicker", "tidyr", "munsell", "DT", "RColorBrewer", "httpuv"))
+          install.packages("remotes")
+          remotes::install_deps(dependencies = TRUE)
+          install.packages("rlang") # Ensure we have the latest version
         shell: Rscript {0}
       # ----------------------------------------------------
 
