@@ -8,19 +8,19 @@ Maintainer: Wong GR <gourean@gmail.com>
 Description: An automated R Shiny tool for biostatistical analysis and publication-ready visualizations.
 License: MIT
 Imports: 
-    shiny,
     bslib,
-    rlang,
-    ggplot2,
-    dplyr,
-    glue,
-    dunn.test,
-    scales,
-    svglite,
-    ggsignif,
     colourpicker,
-    tidyr,
+    dplyr,
+    DT,
+    dunn.test,
+    ggplot2,
+    ggsignif,
+    glue,
     munsell,
-    DT
+    rlang,
+    scales,
+    shiny,
+    svglite,
+    tidyr
 Encoding: UTF-8
 RoxygenNote: 7.2.3

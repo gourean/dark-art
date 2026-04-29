@@ -6,18 +6,19 @@
 # Load libraries
 suppressPackageStartupMessages({
   library(shiny)
-  library(bslib)      # For modern, clean UI
-  library(ggplot2)    # For plotting
-  library(dplyr)      # For data manipulation
-  library(glue)       # For smart text generation
-  library(dunn.test)  # For non-parametric pairwise comparisons
-  library(ggsignif)   # For significance brackets
+  library(rlang)        # Load early to prevent version conflicts in WebR
+  library(bslib)        # For modern, clean UI
   library(colourpicker) # For custom color selection
-  library(tidyr)      # For data reshaping
-  library(scales)     # Explicitly load for formatting
-  library(svglite)    # Explicitly load for SVG export
-  library(munsell)    # Explicitly load to fix ggplot2 dependency error
-  library(DT)         # For interactive tables
+  library(dplyr)        # For data manipulation
+  library(DT)           # For interactive tables
+  library(dunn.test)    # For non-parametric pairwise comparisons
+  library(ggplot2)      # For plotting
+  library(ggsignif)     # For significance brackets
+  library(glue)         # For smart text generation
+  library(munsell)      # Explicitly load to fix ggplot2 dependency error
+  library(scales)       # Explicitly load for formatting
+  library(svglite)      # Explicitly load for SVG export
+  library(tidyr)        # For data reshaping
 })
 
 # ==============================================================================
