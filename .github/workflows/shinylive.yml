@@ -32,25 +32,41 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libarchive-dev
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libarchive-dev pkg-config
 
       - uses: r-lib/actions/setup-renv@v2
 
       - name: Build Shinylive App
         run: |
-          # 0. Setup clean repositories
+          # 1. Setup clean repositories
           options(repos = c(CRAN = "https://cran.rstudio.com/"))
           
-          # 1. Install pak and build tools
+          # 2. Install pak and build tools
           if (!requireNamespace("pak", quietly = TRUE)) install.packages("pak")
           pak::pkg_install(c("shinylive", "archive"))
           
-          # 2. Force clean assets download (resolves rlang 1.1.6 mismatch)
+          # 3. Manual Assets Download (to bypass archive::archive_extract segfault)
+          # We download the assets and place them where Shinylive expects them
           library(shinylive)
-          assets_cleanup()
-          assets_download()
+          ASSETS_VER <- "0.10.8" # Match the current latest
+          CACHE_DIR <- shinylive:::assets_cache_dir()
+          DEST_DIR <- file.path(CACHE_DIR, paste0("assets-", ASSETS_VER))
           
-          # 3. Verify versions
+          if (!dir.exists(DEST_DIR)) {
+            dir.create(CACHE_DIR, recursive = TRUE, showWarnings = FALSE)
+            URL <- paste0("https://github.com/posit-dev/shinylive/releases/download/v", ASSETS_VER, "/shinylive-", ASSETS_VER, ".tar.gz")
+            TARGZ <- tempfile(fileext = ".tar.gz")
+            download.file(URL, TARGZ)
+            # Use system tar to avoid archive package segfault
+            system(paste0("tar -xzf ", TARGZ, " -C ", CACHE_DIR))
+            # Move to the expected folder name if needed
+            EXTRACTED <- file.path(CACHE_DIR, paste0("shinylive-", ASSETS_VER))
+            if (dir.exists(EXTRACTED) && EXTRACTED != DEST_DIR) {
+              file.rename(EXTRACTED, DEST_DIR)
+            }
+          }
+          
+          # 4. Verify versions
           cat("\n--- DEPLOYMENT VERSIONS ---\n")
           cat("R Version:", as.character(getRversion()), "\n")
           if (requireNamespace("rlang", quietly = TRUE)) {
@@ -58,7 +74,7 @@ jobs:
           }
           cat("---------------------------\n\n")
           
-          # 4. Build the site
+          # 5. Build the site
           # Export Main App
           export(appdir = ".", destdir = "_site")
           
