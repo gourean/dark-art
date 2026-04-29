@@ -5,3 +5,8 @@
 *.txt
 !README.md
 !CHANGELOG.md
+
+# renv
+renv/library/
+renv/python/
+renv/staging/

@@ -29,14 +29,32 @@ jobs:
 
       - uses: r-lib/actions/setup-pandoc@v2
 
-      - uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          extra-packages: any::shinylive, any::remotes
+      - uses: r-lib/actions/setup-renv@v2
 
       - name: Build Shinylive App
         run: |
-          shinylive::assets_download()
-          shinylive::export(appdir = ".", destdir = "_site")
+          # 1. Verify versions from renv.lock
+          cat("\n--- DEPLOYMENT VERSIONS ---\n")
+          cat("R Version:", as.character(getRversion()), "\n")
+          if (requireNamespace("rlang", quietly = TRUE)) {
+            cat("rlang:", as.character(packageVersion("rlang")), "\n")
+          }
+          cat("---------------------------\n\n")
+          
+          # 2. Install shinylive if not in renv (build tool only)
+          if (!requireNamespace("shinylive", quietly = TRUE)) {
+            install.packages("shinylive")
+          }
+          
+          # 3. Build the site
+          library(shinylive)
+          assets_download()
+          
+          # Export Main App
+          export(appdir = ".", destdir = "_site")
+          
+          # Export V1 Legacy (ensures it is runnable at /v1/ URL)
+          export(appdir = "v1", destdir = "_site/v1")
         shell: Rscript {0}
 
       - name: Upload pages artifact
