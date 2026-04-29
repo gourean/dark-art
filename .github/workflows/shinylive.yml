@@ -29,12 +29,17 @@ jobs:
 
       - uses: r-lib/actions/setup-pandoc@v2
 
-      - name: Build Shinylive App
-        uses: posit-dev/shinylive-action@v1
+      - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          app-dir: .
-          output-dir: _site
-          assets-version: "0.2.0" # You can pin this if needed
+          extra-packages: any::shinylive, any::remotes
+        env:
+          R_REPOS: https://p3m.dev/cran/__linux__/jammy/2026-02-24
+
+      - name: Build Shinylive App
+        run: |
+          shinylive::assets_download()
+          shinylive::export(appdir = ".", destdir = "_site")
+        shell: Rscript {0}
 
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3
