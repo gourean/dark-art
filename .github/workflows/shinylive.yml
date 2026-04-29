@@ -29,28 +29,33 @@ jobs:
 
       - uses: r-lib/actions/setup-pandoc@v2
 
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libarchive-dev
+
       - uses: r-lib/actions/setup-renv@v2
 
       - name: Build Shinylive App
         run: |
-          # 1. Install pak for robust dependency handling
+          # 1. Install pak and build tools
           if (!requireNamespace("pak", quietly = TRUE)) install.packages("pak")
+          pak::pkg_install(c("shinylive", "archive"))
           
-          # 2. Verify versions from renv.lock
+          # 2. Force clean assets download (resolves rlang 1.1.6 mismatch)
+          library(shinylive)
+          assets_cleanup()
+          assets_download()
+          
+          # 3. Verify versions
           cat("\n--- DEPLOYMENT VERSIONS ---\n")
           cat("R Version:", as.character(getRversion()), "\n")
           if (requireNamespace("rlang", quietly = TRUE)) {
-            cat("rlang:", as.character(packageVersion("rlang")), "\n")
+            cat("rlang (Runner):", as.character(packageVersion("rlang")), "\n")
           }
           cat("---------------------------\n\n")
           
-          # 3. Install shinylive using pak (handles system libs better)
-          pak::pkg_install("shinylive")
-          
           # 4. Build the site
-          # Note: assets_download() is skipped as export() handles it internally.
-          library(shinylive)
-          
           # Export Main App
           export(appdir = ".", destdir = "_site")
           
