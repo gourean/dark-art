@@ -36,8 +36,8 @@ jobs:
 
       - name: Install Dependencies and Build App
         run: |
-          # 1. Setup Repositories
-          options(repos = c(CRAN = "https://packagemanager.posit.co/cran/2024-10-01"))
+          # 1. Setup Repositories (Matching last successful deployment: Feb 24, 2026)
+          options(repos = c(CRAN = "https://packagemanager.posit.co/cran/2026-02-24"))
           
           # 2. Install Build Tools
           install.packages(c("remotes", "shinylive"))
