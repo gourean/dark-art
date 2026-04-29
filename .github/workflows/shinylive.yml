@@ -29,36 +29,12 @@ jobs:
 
       - uses: r-lib/actions/setup-pandoc@v2
 
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev
-
-      - name: Install Dependencies and Build App
-        run: |
-          # 1. Setup Binary Repositories (Ubuntu Jammy / 2026-02-24)
-          # Use warn=2 to treat warnings as errors during installation
-          options(warn = 2)
-          options(repos = c(CRAN = "https://p3m.dev/cran/__linux__/jammy/2026-02-24"))
-          
-          message("Installing build tools...")
-          install.packages("shinylive")
-          
-          message("Installing app dependencies...")
-          install.packages(c(
-            "shiny", "bslib", "ggplot2", "dplyr", "glue",
-            "dunn.test", "scales", "svglite", "ggsignif",
-            "colourpicker", "tidyr", "munsell", "DT", "httpuv", "rlang"
-          ), dependencies = TRUE)
-          
-          # 3. Build the App
-          if (!requireNamespace("shinylive", quietly = TRUE)) stop("shinylive package not found after installation!")
-          
-          library(shinylive)
-          assets_download()
-          unlink("_site", recursive = TRUE)
-          export(appdir = ".", destdir = "_site")
-        shell: Rscript {0}
+      - name: Build Shinylive App
+        uses: posit-dev/shinylive-action@v1
+        with:
+          app-dir: .
+          output-dir: _site
+          assets-version: "0.2.0" # You can pin this if needed
 
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3
