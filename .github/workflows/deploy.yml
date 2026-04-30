@@ -68,8 +68,22 @@ jobs:
           
           # 5. Run exports safely
           shinylive::export(appdir = ".", destdir = "_site")
-          shinylive::export(appdir = "v1", destdir = "_site/v1")
-          shinylive::export(appdir = "v1", destdir = "_site/review_v1")
+          
+          # 6. Legacy v1 'Frozen' Logic
+          # If 'v1_frozen' folder exists, copy its static contents to the output site.
+          # This prevents future package updates from breaking the legacy app.
+          if (dir.exists("v1_frozen") && length(list.files("v1_frozen")) > 0) {
+            cat("\n--- DEPLOYING FROZEN V1 ASSETS ---\n")
+            dir.create("_site/v1", recursive = TRUE, showWarnings = FALSE)
+            dir.create("_site/review_v1", recursive = TRUE, showWarnings = FALSE)
+            # Copy all files from v1_frozen to the destination paths
+            file.copy(list.files("v1_frozen", full.names = TRUE), "_site/v1", recursive = TRUE)
+            file.copy(list.files("v1_frozen", full.names = TRUE), "_site/review_v1", recursive = TRUE)
+          } else {
+            cat("\n--- WARNING: v1_frozen NOT FOUND. FALLING BACK TO DYNAMIC EXPORT ---\n")
+            shinylive::export(appdir = "v1", destdir = "_site/v1")
+            shinylive::export(appdir = "v1", destdir = "_site/review_v1")
+          }
         shell: Rscript {0}
       # ------------------------------------------------------------------------------
 
