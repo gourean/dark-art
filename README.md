@@ -139,4 +139,4 @@ If you find this tool useful, consider supporting its development:
 
 ## Development
 
-Developed via **Vibe Coding** with **Gemini 3 Pro**.
+Developed via **Vibe Coding**.
